@@ -62,19 +62,41 @@ RULES:
     
     # Tentativo di estrazione del JSON dalla risposta
     import json
-    import re
     
     content = getattr(response, "content", str(response))
-    match = re.search(r"\{.*\}", content, re.DOTALL)
     
-    if match:
-        try:
-            parsed = json.loads(match.group(0))
-            args = parsed.get("arguments", parsed.get("args", parsed))
-            decision_obj = ValidatorDecision(**args)
-            print("[VALIDATOR] Fallback parsing riuscito!")
-        except Exception as e:
-            pass
+    # Estrai tutti gli oggetti JSON validi
+    brace_level = 0
+    current_json = ""
+    in_string = False
+    escape = False
+    
+    for char in content:
+        if char == '"' and not escape:
+            in_string = not in_string
+        if not in_string:
+            if char == '{':
+                brace_level += 1
+            elif char == '}':
+                brace_level -= 1
+        
+        if brace_level > 0 or (char == '}' and brace_level == 0 and current_json):
+            current_json += char
+            if brace_level == 0:
+                try:
+                    parsed = json.loads(current_json)
+                    if "name" in parsed:
+                        args = parsed.get("arguments", parsed.get("args", parsed))
+                        decision_obj = ValidatorDecision(**args)
+                        print("[VALIDATOR] Fallback parsing riuscito!")
+                        break # Abbiamo trovato la decisione
+                except Exception:
+                    pass
+                current_json = ""
+        elif char == '\\':
+            escape = not escape
+        else:
+            escape = False
             
     if not decision_obj:
         if hasattr(response, "tool_calls") and response.tool_calls:
