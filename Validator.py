@@ -47,15 +47,34 @@ def validator_node(state: GraphState, llm) -> dict:
     # 2. PREPARAZIONE DEL MODELLO E DEI MESSAGGI
     system_prompt = f"""You are the Validator Agent of an Information Retrieval system.
 You must decide if the query requires further refinement or if it can be routed to the planner.
-WARNING: Do not make decisions blindly! 
-1. First, call the `calc_refinement_metrics` tool (or `calc_planning_metrics` if you have retrieved context).
-2. Analyze the results returned by the metric tools.
-3. Call the `ValidatorDecision` tool to issue your final verdict.
+WARNING: Do not make decisions blindly! You must ALWAYS use tools.
+
+--- FEW-SHOT EXAMPLES ---
+
+User's Input: Current Query: 'What is X?'. Current Context: ''
+Expected Action: No context retrieved yet. Check refinement metrics.
+Tools to call:
+- calc_refinement_metrics
+  - query: "What is X?"
+
+User's Input: Current Query: 'What is X?'. Current Context: 'Context about X...'
+Expected Action: Context retrieved. Check planning metrics.
+Tools to call:
+- calc_planning_metrics
+  - query: "What is X?"
+  - retrieved_context: "Context about X..."
+
+After evaluating metrics, make a final decision.
+Tools to call:
+- ValidatorDecision
+  - reasoning: "The metrics indicate high ambiguity. We need more refinement."
+  - feedback: "Please decompose the query."
+  - next_action: "route_to_refinement"
 """
     
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"Current Query: '{query}'.\nCurrent Context: '{context}'")
+        HumanMessage(content=f"Current Query: '{query}'.\nCurrent Context: '{context}'\n\nAnalyze the state and call the appropriate tool.")
     ]
     
     # Bindiamo TUTTI i tool al modello, compreso lo schema finale Pydantic
