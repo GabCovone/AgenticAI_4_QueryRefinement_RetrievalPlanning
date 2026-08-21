@@ -78,26 +78,44 @@ You can combine tools. If you call multiple tools, they form a cascade pipeline:
 User's query: "climate effects on gdp and laws to mitigate it"
 Expected Action: The query contains two distinct topics.
 Tools to call:
-- decompose_query
-  - reasoning: "The user asks about economic impact (GDP) and legal regulations (laws). A single vector search will fail, so I must split them."
-  - sub_queries: ["What are the economic effects of climate change on GDP?", "What laws and regulations are implemented to mitigate climate change?"]
+{
+  "name": "decompose_query",
+  "arguments": {
+    "reasoning": "The user asks about economic impact (GDP) and legal regulations (laws). A single vector search will fail, so I must split them.",
+    "sub_queries": ["What are the economic effects of climate change on GDP?", "What laws and regulations are implemented to mitigate climate change?"]
+  }
+}
 
 User's query: "what state is this zip code 85282"
 Expected Action: Single factual question, but too short for semantic search.
 Tools to call:
-- expand_query
-  - reasoning: "The query is clear but lacks vocabulary. I will generate a pseudo-document with geographical context to improve vector recall."
-  - pseudo_document: "Arizona, Maricopa County, Tempe, postal codes geography, US states, Southwest region."
+{
+  "name": "expand_query",
+  "arguments": {
+    "reasoning": "The query is clear but lacks vocabulary. I will generate a pseudo-document with geographical context to improve vector recall.",
+    "pseudo_document": "Arizona, Maricopa County, Tempe, postal codes geography, US states, Southwest region."
+  }
+}
 
 User's query: "hey can u tell me how to fix physics crash returnal"
 Expected Action: Conversational noise, poor syntax, lacks technical terms. Needs rewrite AND expansion.
 Tools to call (Parallel):
-- rewrite_query
-  - reasoning: "Removing conversational noise and formalizing syntax for search."
-  - rewritten_query: "How to resolve physics engine crashes in the game Returnal"
-- expand_query
-  - reasoning: "Adding technical gaming context to expand the search surface."
-  - pseudo_document: "Unreal Engine 4, PS5, PC port, Housemarque, collision bug, patch update, fatal error, graphics drivers, GPU crash."
+{
+  "name": "rewrite_query",
+  "arguments": {
+    "reasoning": "Removing conversational noise and formalizing syntax for search.",
+    "rewritten_query": "How to resolve physics engine crashes in the game Returnal"
+  }
+}
+{
+  "name": "expand_query",
+  "arguments": {
+    "reasoning": "Adding technical gaming context to expand the search surface.",
+    "pseudo_document": "Unreal Engine 4, PS5, PC port, Housemarque, collision bug, patch update, fatal error, graphics drivers, GPU crash."
+  }
+}
+
+IMPORTANT: YOU MUST OUTPUT EXACTLY AND ONLY VALID JSON BLOCKS AS SHOWN ABOVE.
 """
 
     try:
@@ -190,8 +208,12 @@ Tools to call (Parallel):
         print(f"[REFINER] Output finale:\n{final_query_str}")
         
         return {
-            "current_query": final_query_str
+            "current_query": final_query_str,
+            "num_refinement": state.get("num_refinement", 0) + 1
         }
     else:
         print("[REFINER] L'agente ha ritenuto la query perfetta. Nessun tool chiamato.")
-        return {"current_query": current_query}
+        return {
+            "current_query": current_query,
+            "num_refinement": state.get("num_refinement", 0) + 1
+        }

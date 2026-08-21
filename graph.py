@@ -36,7 +36,8 @@ def get_qwen_model():
         n_ctx=4096,           
         temperature=0.1,      
         max_tokens=512,
-        chat_format="chatml"
+        chat_format="chatml",
+        verbose=False
     )
 
 # Importiamo i nodi dopo aver definito lo stato
