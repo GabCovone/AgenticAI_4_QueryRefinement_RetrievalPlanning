@@ -10,23 +10,10 @@ from graph import GraphState
 MAX_REFINEMENT = 5
 MAX_PLANNING = 5
 
-# --- TOOL DELLE METRICHE ---
-@tool
-def calc_refinement_metrics(query: str) -> dict:
-    """Calculates refinement metrics. Returns 'ambiguity_score' and 'breadth_index'."""
-    print(f"\n   [TOOL ESEGUITO DA QWEN] -> calc_refinement_metrics per: '{query}'")
-    return {"ambiguity_score": 4, "breadth_index": 7}
-
-@tool
-def calc_planning_metrics(query: str, retrieved_context: str) -> dict:
-    """Calculates planning metrics. Returns 'information_sufficiency' and 'consistency_score'."""
-    print(f"\n   [TOOL ESEGUITO DA QWEN] -> calc_planning_metrics")
-    return {"information_sufficiency": 8, "consistency_score": 9}
-
-# --- SCHEMA DI DECISIONE FINALE (Funge da Tool per terminare il loop) ---
+# --- SCHEMA DI DECISIONE FINALE ---
 class ValidatorDecision(BaseModel):
-    """USE THIS TOOL ONLY AT THE END to issue your final routing decision."""
-    reasoning: str = Field(description="Your reasoning based on the results of the previously called metric tools.")
+    """USE THIS TOOL to issue your final routing decision."""
+    reasoning: str = Field(description="Your reasoning based on the query and context.")
     feedback: str = Field(description="Instructions or feedback for the next agent.")
     next_action: Literal["route_to_refinement", "route_to_planning", "finish"] = Field(
         description="The next node to send the execution to."
@@ -34,122 +21,75 @@ class ValidatorDecision(BaseModel):
 
 # --- LOGICA DEL NODO VALIDATORE ---
 def validator_node(state: GraphState, llm) -> dict:
-    query = state.get("current_query", state["original_query"])
+    query = state.get("current_query", state.get("original_query", ""))
     context = state.get("retrieved_context", "")
     num_ref = state.get("num_refinement", 0)
     num_plan = state.get("num_planning", 0)
     
-    # 1. HARD LIMIT CHECK
     if num_ref >= MAX_REFINEMENT and num_plan >= MAX_PLANNING:
         print("[VALIDATOR] Limiti massimi raggiunti.")
         return {"next_node": "finish", "feedback_history": ["Forced finish due to limits."]}
 
-    # 2. PREPARAZIONE DEL MODELLO E DEI MESSAGGI
     system_prompt = f"""You are the Validator Agent of an Information Retrieval system.
-You must decide if the query requires further refinement or if it can be routed to the planner.
-WARNING: Do not make decisions blindly! You must ALWAYS use tools.
+You must decide if the query requires further refinement, or if it can be routed to the planner, or if the retrieved context already answers the query completely (finish).
 
---- FEW-SHOT EXAMPLES ---
+RULES:
+1. If 'Current Context' is empty, the query has not been searched yet. You must route to 'route_to_refinement' if the query is complex, ambiguous, or needs multi-hop reasoning. Otherwise, route to 'route_to_planning' to execute the search.
+2. If 'Current Context' has information but it doesn't answer the query, provide feedback and 'route_to_refinement'.
+3. You MUST output your decision by calling the ValidatorDecision tool. Since you are running in a constrained environment, output EXACTLY AND ONLY a valid JSON object matching this schema:
 
-User's Input: Current Query: 'What is X?'. Current Context: ''
-Expected Action: No context retrieved yet. Check refinement metrics.
-Tools to call:
-- calc_refinement_metrics
-  - query: "What is X?"
-
-User's Input: Current Query: 'What is X?'. Current Context: 'Context about X...'
-Expected Action: Context retrieved. Check planning metrics.
-Tools to call:
-- calc_planning_metrics
-  - query: "What is X?"
-  - retrieved_context: "Context about X..."
-
-After evaluating metrics, make a final decision.
-Tools to call:
-- ValidatorDecision
-  - reasoning: "The metrics indicate high ambiguity. We need more refinement."
-  - feedback: "Please decompose the query."
-  - next_action: "route_to_refinement"
+{{
+  "name": "ValidatorDecision",
+  "arguments": {{
+    "reasoning": "your chain of thought",
+    "feedback": "instructions for the next node",
+    "next_action": "route_to_refinement" | "route_to_planning" | "finish"
+  }}
+}}
 """
     
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"Current Query: '{query}'.\nCurrent Context: '{context}'\n\nAnalyze the state and call the appropriate tool.")
+        HumanMessage(content=f"Current Query: '{query}'.\nCurrent Context: '{context}'\n\nAnalyze the state and output the JSON tool call.")
     ]
     
-    # Bindiamo TUTTI i tool al modello, compreso lo schema finale Pydantic
-    llm_with_tools = llm.bind_tools([calc_refinement_metrics, calc_planning_metrics, ValidatorDecision])
-    
+    llm_with_tools = llm.bind_tools([ValidatorDecision])
     decision_obj = None
 
-    # 3. IL VERO LOOP AGENTICO (Tool Calling)
     print(f"\n[VALIDATOR] Avvio ciclo decisionale (Ref={num_ref}, Plan={num_plan})...")
     
-    while True:
-        # L'LLM decide autonomamente cosa fare in base allo storico dei messaggi
-        response = llm_with_tools.invoke(messages)
-        messages.append(response) # Aggiungiamo la risposta (che contiene la richiesta del tool) alla memoria
-        
-        # Se LangChain non riconosce i tool calls nativamente, proviamo a parsare il testo!
-        if not response.tool_calls:
-            import json
-            import re
+    response = llm_with_tools.invoke(messages)
+    
+    # Tentativo di estrazione del JSON dalla risposta
+    import json
+    import re
+    
+    content = getattr(response, "content", str(response))
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            args = parsed.get("arguments", parsed.get("args", parsed))
+            decision_obj = ValidatorDecision(**args)
+            print("[VALIDATOR] Fallback parsing riuscito!")
+        except Exception as e:
+            pass
             
-            content = response.content
-            # Cerchiamo un blocco JSON nel testo (greedy per supportare JSON annidati)
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            
-            if match:
-                try:
-                    parsed_json = json.loads(match.group(0))
-                    # Molti LLM restituiscono {"name": "nome_tool", "arguments": {...}}
-                    # Se non c'è "name", assumiamo sia ValidatorDecision
-                    
-                    if "name" in parsed_json:
-                        t_name = parsed_json["name"]
-                        t_args = parsed_json.get("arguments", parsed_json.get("args", {}))
-                    else:
-                        t_name = "ValidatorDecision"
-                        t_args = parsed_json
-                    
-                    # Simuliamo la struttura di LangChain
-                    response.tool_calls = [{"name": t_name, "args": t_args, "id": "fallback_id_123"}]
-                    print(f"[VALIDATOR] Fallback parsing riuscito: {t_name}")
-                except Exception as e:
-                    pass
+    if not decision_obj:
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            tool_call = response.tool_calls[0]
+            if tool_call["name"] == "ValidatorDecision":
+                decision_obj = ValidatorDecision(**tool_call["args"])
+                print("[VALIDATOR] Tool call nativo riuscito!")
 
-        # Se ancora non abbiamo tool calls, c'è un errore
-        if not response.tool_calls:
-            print(f"[VALIDATOR] ERRORE: Qwen non ha usato alcun tool. Contenuto: {response.content}")
-            decision_obj = ValidatorDecision(
-                reasoning="Fallback error: no tools called.", 
-                feedback="", 
-                next_action="finish"
-            )
-            break
-            
-        tool_call = response.tool_calls[0]
-        tool_name = tool_call["name"]
-        tool_args = tool_call["args"]
-        
-        # Se l'LLM ha deciso di chiamare il tool finale, rompiamo il ciclo
-        if tool_name == "ValidatorDecision":
-            print(f"[VALIDATOR] Qwen ha preso la decisione finale!")
-            decision_obj = ValidatorDecision(**tool_args)
-            break
-            
-        # Altrimenti, l'LLM ha richiesto le metriche. Noi le calcoliamo e gliele restituiamo.
-        elif tool_name == "calc_refinement_metrics":
-            result = calc_refinement_metrics.invoke(tool_args)
-            messages.append(ToolMessage(content=str(result), tool_call_id=tool_call["id"]))
-            
-        elif tool_name == "calc_planning_metrics":
-            result = calc_planning_metrics.invoke(tool_args)
-            messages.append(ToolMessage(content=str(result), tool_call_id=tool_call["id"]))
-            
-        else:
-            # Rete di sicurezza nel caso si inventi un tool inesistente
-            messages.append(ToolMessage(content="Errore: Tool inesistente.", tool_call_id=tool_call["id"]))
+    if not decision_obj:
+        print(f"[VALIDATOR] ERRORE: Qwen non ha restituito un JSON valido. Contenuto: {content}")
+        decision_obj = ValidatorDecision(
+            reasoning="Fallback error: no valid JSON.", 
+            feedback="", 
+            next_action="finish"
+        )
 
     # 4. OVERRIDE DI SICUREZZA
     final_action = decision_obj.next_action
