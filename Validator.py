@@ -90,9 +90,37 @@ Tools to call:
         response = llm_with_tools.invoke(messages)
         messages.append(response) # Aggiungiamo la risposta (che contiene la richiesta del tool) alla memoria
         
-        # Se non chiama tool, c'è un errore logico (forziamo l'uscita o gestiamo l'errore)
+        # Se LangChain non riconosce i tool calls nativamente, proviamo a parsare il testo!
         if not response.tool_calls:
-            print("[VALIDATOR] ERRORE: Qwen non ha usato alcun tool.")
+            import json
+            import re
+            
+            content = response.content
+            # Cerchiamo un blocco JSON nel testo (greedy per supportare JSON annidati)
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            
+            if match:
+                try:
+                    parsed_json = json.loads(match.group(0))
+                    # Molti LLM restituiscono {"name": "nome_tool", "arguments": {...}}
+                    # Se non c'è "name", assumiamo sia ValidatorDecision
+                    
+                    if "name" in parsed_json:
+                        t_name = parsed_json["name"]
+                        t_args = parsed_json.get("arguments", parsed_json.get("args", {}))
+                    else:
+                        t_name = "ValidatorDecision"
+                        t_args = parsed_json
+                    
+                    # Simuliamo la struttura di LangChain
+                    response.tool_calls = [{"name": t_name, "args": t_args, "id": "fallback_id_123"}]
+                    print(f"[VALIDATOR] Fallback parsing riuscito: {t_name}")
+                except Exception as e:
+                    pass
+
+        # Se ancora non abbiamo tool calls, c'è un errore
+        if not response.tool_calls:
+            print(f"[VALIDATOR] ERRORE: Qwen non ha usato alcun tool. Contenuto: {response.content}")
             decision_obj = ValidatorDecision(
                 reasoning="Fallback error: no tools called.", 
                 feedback="", 

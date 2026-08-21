@@ -119,7 +119,47 @@ Tools to call (Parallel):
     rewritten_query = None
 
     if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
-        for tool_call in response_msg.tool_calls:
+        tool_calls_list = response_msg.tool_calls
+    else:
+        # FALLBACK JSON PARSER CON BILANCIAMENTO PARENTESI
+        import json
+        tool_calls_list = []
+        content = getattr(response_msg, "content", str(response_msg))
+        
+        # Estrai tutti gli oggetti JSON validi
+        brace_level = 0
+        current_json = ""
+        in_string = False
+        escape = False
+        
+        for char in content:
+            if char == '"' and not escape:
+                in_string = not in_string
+            if not in_string:
+                if char == '{':
+                    brace_level += 1
+                elif char == '}':
+                    brace_level -= 1
+            
+            if brace_level > 0 or (char == '}' and brace_level == 0 and current_json):
+                current_json += char
+                if brace_level == 0:
+                    try:
+                        parsed = json.loads(current_json)
+                        if "name" in parsed:
+                            t_name = parsed["name"]
+                            t_args = parsed.get("arguments", parsed.get("args", {}))
+                            tool_calls_list.append({"name": t_name, "args": t_args})
+                    except Exception:
+                        pass
+                    current_json = ""
+            elif char == '\\':
+                escape = not escape
+            else:
+                escape = False
+                
+    if tool_calls_list:
+        for tool_call in tool_calls_list:
             tools_used.append(tool_call['name'])
             args = tool_call['args']
             
