@@ -54,7 +54,7 @@ def planning_node(state: GraphState) -> dict:
     }
 
 # --- FUNZIONE DI ROUTING CONDIZIONALE ---
-def route_after_validator(state: GraphState) -> Literal["refinement_node", "planning_node", None]:
+def route_after_validator(state: GraphState) -> Literal["refinement_node", "planning_node", "__end__"]:
     """Legge lo stato aggiornato dal validatore e decide il prossimo nodo."""
     next_action = state.get("next_node")
     if next_action == "route_to_refinement":
@@ -83,7 +83,12 @@ def build_graph():
     # Aggiungiamo i bordi condizionali in uscita dal validatore
     workflow.add_conditional_edges(
         "validator_node",
-        route_after_validator
+        route_after_validator,
+        {
+            "refinement_node": "refinement_node",
+            "planning_node": "planning_node",
+            END: END
+        }
     )
 
     # Dopo il refinement, si torna SEMPRE al validatore per controllare il lavoro
