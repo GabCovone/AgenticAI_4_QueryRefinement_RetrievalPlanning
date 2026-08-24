@@ -1,13 +1,12 @@
 import json
-from typing import List
+from typing import List, Literal
+from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from langchain_community.tools import DuckDuckGoSearchResults
 from graph import GraphState
 
 # --- 1. SETUP DEL RETRIEVER (DuckDuckGo API) ---
-# Usiamo DuckDuckGoSearchResults per avere sia uno snippet di testo che il link alla fonte.
-# Questo tool non occupa memoria VRAM/RAM ed è perfetto per il task "Tool-Augmented Retrieval".
 ddg_search = DuckDuckGoSearchResults(max_results=3)
 
 @tool
@@ -23,35 +22,12 @@ def web_search(query: str) -> str:
     except Exception as e:
         return f"Errore durante la ricerca: {str(e)}"
 
-# --- 2. NODO PLANNER ---
-def planner_node(state: GraphState, llm) -> dict:
-    """
-    Esegue il Multi-Step Retrieval Planning (ReAct + IRCoT).
-    Gestisce in sequenza le query generate dal Refiner e sintetizza la risposta finale.
-    """
-    print("\n--- [PLANNER] Inizio Esecuzione Piano Multi-Step ---")
-    
-    queries: List[str] = state.get("current_query", [])
-    if isinstance(queries, str):
-        # Il Refiner unisce le sotto-query con "\n---\n"
-        queries = [q.strip() for q in queries.split("\n---\n") if q.strip()]
-        
-    global_context = ""
-    tools = [web_search]
-    llm_with_tools = llm.bind_tools(tools)
-    
-    # Limite di sicurezza per evitare OOM (Out Of Memory) su Colab
-    MAX_STEPS_PER_QUERY = 2 
-    
-from pydantic import BaseModel, Field
-from typing import Literal
-
+# --- CLASSI E HELPER PER ADAPTIVE RAG E FALLBACK PARSER ---
 class AdaptiveStrategy(BaseModel):
     """USE THIS TOOL to classify the query strategy."""
     reasoning: str = Field(description="Reasoning for selecting the strategy.")
     strategy: Literal["internal_knowledge", "single_retrieval", "multi_step"] = Field(description="The chosen strategy.")
 
-# Funzione helper per il fallback parser JSON
 def extract_tool_calls(response_msg):
     tool_calls_list = []
     if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
@@ -84,7 +60,27 @@ def extract_tool_calls(response_msg):
             else: escape = False
     return tool_calls_list
 
-# --- FASE A: RETRIEVAL INTERATTIVO (IRCoT, Adaptive-RAG & ReAct Loop) ---
+
+# --- 2. NODO PLANNER ---
+def planner_node(state: GraphState, llm) -> dict:
+    """
+    Esegue il Multi-Step Retrieval Planning (ReAct + IRCoT).
+    Gestisce in sequenza le query generate dal Refiner e sintetizza la risposta finale.
+    """
+    print("\n--- [PLANNER] Inizio Esecuzione Piano Multi-Step ---")
+    
+    queries: List[str] = state.get("current_query", [])
+    if isinstance(queries, str):
+        queries = [q.strip() for q in queries.split("\n---\n") if q.strip()]
+        
+    global_context = ""
+    tools = [web_search]
+    llm_with_tools = llm.bind_tools(tools)
+    
+    # Limite di sicurezza per evitare OOM (Out Of Memory) su Colab
+    MAX_STEPS_PER_QUERY = 2 
+    
+    # --- FASE A: RETRIEVAL INTERATTIVO (IRCoT, Adaptive-RAG & ReAct Loop) ---
     for i, query in enumerate(queries):
         print(f"\n[PLANNER] Step {i+1}/{len(queries)}: Risoluzione della query -> '{query}'")
         step_context = ""
@@ -141,7 +137,6 @@ User query: "How do solid-state batteries work and what are their applications?"
 
         # 2. ESECUZIONE DELLA STRATEGIA
         if strategy == "internal_knowledge":
-            # Risposta diretta senza web search
             ans = llm.invoke([HumanMessage(content=f"Answer briefly: {query}")])
             step_context += f"Internal Knowledge: {ans.content}\n"
             
