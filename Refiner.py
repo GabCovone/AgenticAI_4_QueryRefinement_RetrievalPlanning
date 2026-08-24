@@ -8,36 +8,33 @@ from graph import GraphState
 # Devono spiegare in modo esaustivo l'intento logico, i limiti e fornire esempi specifici.
 
 @tool
-def decompose_query(reasoning: str, sub_queries: List[str]) -> List[str]:
+def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> List[str]:
     """
     Applies Phase 1 of the 'Least-to-Most Prompting' framework.
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
-    WHY TO USE: Vector databases fail if they try to retrieve multiple distinct concepts at once. 
-    INSTRUCTIONS: Analyze the query and decompose it into a list of atomic, logically sequential, and independent sub-queries. In the 'reasoning' field, explain why you chose to decompose.
-    EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?", you cannot solve it in one step.
+    INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
+    EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
     The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"]
     """
     return sub_queries
 
 @tool
-def expand_query(reasoning: str, pseudo_document: str) -> str:
+def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     """
     Applies the 'Query2doc' framework for semantic expansion.
     WHEN TO USE: Use this tool when the query is clear and has a single subject, but is too short, vague, or lacks the technical jargon needed for effective retrieval.
-    WHY TO USE: Generating related concepts, synonyms, and a hypothetical context (pseudo-document) drastically improves the Recall of the vector database.
-    INSTRUCTIONS: Generate a short text string containing latent keywords, acronyms, or synonyms related to the query. In the 'reasoning' field, explain why you are expanding it.
+    INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you are expanding it.
     EXAMPLE: If the query is "car batteries that don't die in the cold".
     The `pseudo_document` argument must be: "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
     """
     return pseudo_document
 
 @tool
-def rewrite_query(reasoning: str, rewritten_query: str) -> str:
+def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
     """
     Applies the 'Rewrite-Retrieve-Read' framework for syntactic correction.
     WHEN TO USE: Use this tool for single queries that contain conversational noise (e.g., "hey can you tell me..."), grammatical errors, or convoluted syntax.
-    WHY TO USE: Removing noise and linearizing the syntax focuses the search engine's attention exclusively on the informational intent.
-    INSTRUCTIONS: Rewrite the entire question in a formal, direct manner, optimized for a search engine. In the 'reasoning' field, explain your changes.
+    INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain your changes.
     EXAMPLE: If the query is "hey listen but how do you figure out if the car engine has a broken head gasket?".
     The `rewritten_query` argument must be: "Symptoms and diagnostic methods for a damaged engine head gasket".
     """
@@ -62,6 +59,7 @@ def refiner_node(state: GraphState, llm) -> dict:
 Your goal is to analyze the user's query and decide how to optimize it using your tools.
 You can use multiple tools simultaneously.
 Since you must return formatted outputs, you **MUST** formulate your Chain-of-Thought inside the `reasoning` field of the tools you call.
+Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator and critique your past attempts before making a decision.
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.
@@ -81,6 +79,7 @@ Tools to call:
 {
   "name": "decompose_query",
   "arguments": {
+    "reflection": "The Validator feedback (if any) indicates that the query is too complex for a single search. I must split it.",
     "reasoning": "The user asks about economic impact (GDP) and legal regulations (laws). A single vector search will fail, so I must split them.",
     "sub_queries": ["What are the economic effects of climate change on GDP?", "What laws and regulations are implemented to mitigate climate change?"]
   }
@@ -92,6 +91,7 @@ Tools to call:
 {
   "name": "expand_query",
   "arguments": {
+    "reflection": "There is no critical feedback, but the query is very short. I should expand it to improve recall.",
     "reasoning": "The query is clear but lacks vocabulary. I will generate a pseudo-document with geographical context to improve vector recall.",
     "pseudo_document": "Arizona, Maricopa County, Tempe, postal codes geography, US states, Southwest region."
   }
@@ -103,6 +103,7 @@ Tools to call (Parallel):
 {
   "name": "rewrite_query",
   "arguments": {
+    "reflection": "The feedback indicates the query contains too much noise. I need to extract the core informational intent.",
     "reasoning": "Removing conversational noise and formalizing syntax for search.",
     "rewritten_query": "How to resolve physics engine crashes in the game Returnal"
   }
@@ -110,6 +111,7 @@ Tools to call (Parallel):
 {
   "name": "expand_query",
   "arguments": {
+    "reflection": "The feedback also suggests adding technical jargon to broaden the search.",
     "reasoning": "Adding technical gaming context to expand the search surface.",
     "pseudo_document": "Unreal Engine 4, PS5, PC port, Housemarque, collision bug, patch update, fatal error, graphics drivers, GPU crash."
   }

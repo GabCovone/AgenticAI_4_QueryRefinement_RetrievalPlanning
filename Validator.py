@@ -10,11 +10,15 @@ from graph import GraphState
 MAX_REFINEMENT = 5
 MAX_PLANNING = 5
 
-# --- SCHEMA DI DECISIONE FINALE ---
+# --- SCHEMA DI DECISIONE FINALE (CON SELF-RAG, ADAPTIVE-RAG E REFLEXION) ---
 class ValidatorDecision(BaseModel):
     """USE THIS TOOL to issue your final routing decision."""
-    reasoning: str = Field(description="Your reasoning based on the query and context.")
-    feedback: str = Field(description="Instructions or feedback for the next agent.")
+    reflection: str = Field(description="REFLEXION: Critique past iterations (Refinement/Planning Count). Why did previous steps fail? How can we avoid loops?")
+    query_complexity: Literal["simple", "complex", "already_decomposed"] = Field(description="ADAPTIVE-RAG: Assess the current query's complexity.")
+    is_context_relevant: bool = Field(description="SELF-RAG: Is the retrieved context semantically relevant to the query?")
+    is_query_answered: bool = Field(description="SELF-RAG: Does the context fully and completely answer the Original Query?")
+    reasoning: str = Field(description="CHAIN OF THOUGHT: Combine the critiques above to justify your routing decision.")
+    feedback: str = Field(description="Instructions for the next agent (e.g. what keywords to use, what to search next). Empty if finish.")
     next_action: Literal["route_to_refinement", "route_to_planning", "finish"] = Field(
         description="The next node to send the execution to."
     )
@@ -32,28 +36,32 @@ def validator_node(state: GraphState, llm) -> dict:
 
     original_query = state.get("original_query", str(query))
 
-    system_prompt = f"""You are the Validator Agent of an Information Retrieval system.
-Your job is to orchestrate the flow between the Query Refiner (which optimizes/splits queries) and the Planner (which executes web searches).
+    system_prompt = f"""You are the Orchestrator Validator Agent of an Advanced Information Retrieval system.
+Your job is to apply Reflexion, Adaptive-RAG, and Self-RAG to route execution between the Query Refiner and the Planner.
 
-RULES FOR DECISION MAKING:
-1. BEFORE SEARCHING (Empty Context):
-   - Compare the 'Original Query' with the 'Current Query'.
-   - If the query is complex (multi-hop) and has NOT been decomposed yet, route to 'route_to_refinement' to break it down.
-   - If the 'Current Query' looks successfully refined (e.g., it is split into logical steps separated by '---', or expanded with keywords), it is ready! Route to 'route_to_planning' to execute the searches.
+1. REFLEXION: Look at the Refinement Count and Planning Count. If they are > 0, it means past attempts failed. Reflect on WHY they failed before deciding.
+2. ADAPTIVE-RAG (Routing based on complexity):
+   - If Context is empty and query is 'complex' (multi-hop, multiple subjects) -> route to 'route_to_refinement'.
+   - If Context is empty and query is 'simple' or 'already_decomposed' (contains '---') -> route to 'route_to_planning'.
+3. SELF-RAG (Critique of retrieval):
+   - Evaluate `is_context_relevant` (Did the Planner find good documents?).
+   - Evaluate `is_query_answered` (Is the exact answer to the Original Query present?).
+   - If `is_query_answered` is true -> route to 'finish'.
+   - If context is irrelevant or incomplete, give actionable `feedback` and route to 'route_to_refinement' (to rewrite query) or 'route_to_planning' (to search deeper).
 
-2. AFTER SEARCHING (Context contains search results):
-   - Does the 'Current Context' contain enough information to fully answer the 'Original Query'? If YES, route to 'finish'.
-   - If NO (e.g., search failed, or information is missing), you must decide:
-     a) Was the search query bad? (Route to 'route_to_refinement' to rewrite/expand it).
-     b) Does the planner just need to search deeper based on what was found? (Route to 'route_to_planning').
+You MUST output EXACTLY AND ONLY a valid JSON object calling the ValidatorDecision tool.
 
-3. You MUST output EXACTLY AND ONLY a valid JSON object matching this schema:
+--- FEW-SHOT EXAMPLE ---
 {{
   "name": "ValidatorDecision",
   "arguments": {{
-    "reasoning": "Explain your evaluation of the Current Query and Current Context.",
-    "feedback": "Specific instructions for the next agent (or empty if finish).",
-    "next_action": "route_to_refinement" | "route_to_planning" | "finish"
+    "reflection": "The planner ran once but found irrelevant info. We need to change the search terms.",
+    "query_complexity": "already_decomposed",
+    "is_context_relevant": false,
+    "is_query_answered": false,
+    "reasoning": "The retrieved documents talk about the wrong person. The Refiner should add more specific keywords.",
+    "feedback": "Add the keyword 'director' to the query to disambiguate.",
+    "next_action": "route_to_refinement"
   }}
 }}
 """
