@@ -13,6 +13,7 @@ class GraphState(TypedDict):
     num_planning: int
     next_node: str
     feedback_history: List[str]
+    final_answer: str
 
 # --- INIZIALIZZAZIONE CENTRALE DEL MODELLO ---
 from huggingface_hub import hf_hub_download
@@ -43,16 +44,7 @@ def get_qwen_model():
 # Importiamo i nodi dopo aver definito lo stato
 from Validator import validator_node
 from Refiner import refiner_node
-
-# --- NODI SEGNAPOSTO (MOCK) ---
-# In futuro planner andrà in Planner.py
-def planning_node(state: GraphState) -> dict:
-    print("[PLANNING] Esecuzione del piano di ricerca...")
-    current_count = state.get("num_planning", 0)
-    return {
-        "retrieved_context": "Documento 1: Il RAG migliora l'accuratezza.",
-        "num_planning": current_count + 1
-    }
+from Planner import planner_node
 
 # --- FUNZIONE DI ROUTING CONDIZIONALE ---
 def route_after_validator(state: GraphState) -> Literal["refinement_node", "planning_node", "__end__"]:
@@ -76,7 +68,7 @@ def build_graph():
     # 3. Aggiungiamo i nodi al grafo (iniettando shared_llm con functools.partial)
     workflow.add_node("validator_node", functools.partial(validator_node, llm=shared_llm))
     workflow.add_node("refinement_node", functools.partial(refiner_node, llm=shared_llm))
-    workflow.add_node("planning_node", planning_node)
+    workflow.add_node("planning_node", functools.partial(planner_node, llm=shared_llm))
 
     # Definiamo il punto di partenza
     workflow.add_edge(START, "validator_node")

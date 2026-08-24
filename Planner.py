@@ -233,5 +233,6 @@ Provide a clear, detailed, and structured response."""
     # Ritorna lo stato aggiornato
     return {
         "retrieved_context": global_context,
-        "final_answer": final_answer
+        "final_answer": final_answer,
+        "num_planning": state.get("num_planning", 0) + 1
     }
