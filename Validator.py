@@ -30,19 +30,29 @@ def validator_node(state: GraphState, llm) -> dict:
         print("[VALIDATOR] Limiti massimi raggiunti.")
         return {"next_node": "finish", "feedback_history": ["Forced finish due to limits."]}
 
+    original_query = state.get("original_query", str(query))
+
     system_prompt = f"""You are the Validator Agent of an Information Retrieval system.
-You must decide if the query requires further refinement, or if it can be routed to the planner, or if the retrieved context already answers the query completely (finish).
+Your job is to orchestrate the flow between the Query Refiner (which optimizes/splits queries) and the Planner (which executes web searches).
 
-RULES:
-1. If 'Current Context' is empty, the query has not been searched yet. You must route to 'route_to_refinement' if the query is complex, ambiguous, or needs multi-hop reasoning. Otherwise, route to 'route_to_planning' to execute the search.
-2. If 'Current Context' has information but it doesn't answer the query, provide feedback and 'route_to_refinement'.
-3. You MUST output your decision by calling the ValidatorDecision tool. Since you are running in a constrained environment, output EXACTLY AND ONLY a valid JSON object matching this schema:
+RULES FOR DECISION MAKING:
+1. BEFORE SEARCHING (Empty Context):
+   - Compare the 'Original Query' with the 'Current Query'.
+   - If the query is complex (multi-hop) and has NOT been decomposed yet, route to 'route_to_refinement' to break it down.
+   - If the 'Current Query' looks successfully refined (e.g., it is split into logical steps separated by '---', or expanded with keywords), it is ready! Route to 'route_to_planning' to execute the searches.
 
+2. AFTER SEARCHING (Context contains search results):
+   - Does the 'Current Context' contain enough information to fully answer the 'Original Query'? If YES, route to 'finish'.
+   - If NO (e.g., search failed, or information is missing), you must decide:
+     a) Was the search query bad? (Route to 'route_to_refinement' to rewrite/expand it).
+     b) Does the planner just need to search deeper based on what was found? (Route to 'route_to_planning').
+
+3. You MUST output EXACTLY AND ONLY a valid JSON object matching this schema:
 {{
   "name": "ValidatorDecision",
   "arguments": {{
-    "reasoning": "your chain of thought",
-    "feedback": "instructions for the next node",
+    "reasoning": "Explain your evaluation of the Current Query and Current Context.",
+    "feedback": "Specific instructions for the next agent (or empty if finish).",
     "next_action": "route_to_refinement" | "route_to_planning" | "finish"
   }}
 }}
@@ -50,7 +60,7 @@ RULES:
     
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"Current Query: '{query}'.\nCurrent Context: '{context}'\n\nAnalyze the state and output the JSON tool call.")
+        HumanMessage(content=f"Original Query: '{original_query}'.\nCurrent Query: '{query}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state and output the JSON tool call.")
     ]
     
     llm_with_tools = llm.bind_tools([ValidatorDecision])

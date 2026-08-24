@@ -119,10 +119,15 @@ IMPORTANT: YOU MUST OUTPUT EXACTLY AND ONLY VALID JSON BLOCKS AS SHOWN ABOVE.
 """
 
     try:
+        feedback_history = state.get("feedback_history", [])
+        feedback_text = ""
+        if feedback_history:
+            feedback_text = f"\n\nFEEDBACK FROM VALIDATOR (CRITICAL: You must address these instructions):\n- " + "\n- ".join(feedback_history)
+            
         # L'LLM processerà il ragionamento e chiamerà i tool appropriati
         response_msg = llm_with_tools.invoke([
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User's query: '{current_query}'. Analyze the information need and call the appropriate tools.")
+            HumanMessage(content=f"User's query: '{current_query}'. Analyze the information need and call the appropriate tools.{feedback_text}")
         ])
     except Exception as e:
         print(f"[REFINER ERROR] Inferenza fallita: {e}")
