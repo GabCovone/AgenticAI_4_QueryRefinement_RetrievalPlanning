@@ -146,7 +146,8 @@ User query: "In which city was [director's name] born?" (Assuming context says d
 
         # 2. ESECUZIONE DELLA STRATEGIA
         if strategy == "internal_knowledge":
-            ans = llm.invoke([HumanMessage(content=f"Answer briefly: {query}")])
+            prompt = f"PREVIOUS CONTEXT:\n{global_context if global_context else 'None'}\n\nQuestion: {query}\n\nAnswer briefly (use the context to resolve placeholders like [person]):"
+            ans = llm.invoke([HumanMessage(content=prompt)])
             step_context += f"Internal Knowledge: {ans.content}\n"
             
         elif strategy == "single_retrieval":
