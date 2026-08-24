@@ -22,11 +22,11 @@ def web_search(query: str) -> str:
     except Exception as e:
         return f"Errore durante la ricerca: {str(e)}"
 
-# --- CLASSI E HELPER PER ADAPTIVE RAG E FALLBACK PARSER ---
 class AdaptiveStrategy(BaseModel):
     """USE THIS TOOL to classify the query strategy."""
     reasoning: str = Field(description="Reasoning for selecting the strategy.")
     strategy: Literal["internal_knowledge", "single_retrieval", "multi_step"] = Field(description="The chosen strategy.")
+    search_term: str = Field(description="If single_retrieval, the exact optimized query to search. Resolve any placeholders (e.g. [name]) using the context.")
 
 def extract_tool_calls(response_msg):
     tool_calls_list = []
@@ -89,6 +89,9 @@ def planner_node(state: GraphState, llm) -> dict:
         print("[PLANNER] [Adaptive-RAG] Valutazione della strategia...")
         strategy_prompt = f"""You are a Strategic Planner. Your task is to classify the query to decide the best retrieval strategy.
 
+PREVIOUSLY ACQUIRED CONTEXT (Use this to resolve placeholders like [name] in the query):
+{global_context if global_context else "No previous context."}
+
 Options:
 - 'internal_knowledge': Use for trivial factual questions where no search is needed (e.g. math, capitals).
 - 'single_retrieval': Use when the query needs external information but is straightforward and can be answered with one search.
@@ -103,7 +106,8 @@ User query: "What is 2+2?"
   "name": "AdaptiveStrategy",
   "arguments": {{
     "reasoning": "This is a basic math question that does not require any external search.",
-    "strategy": "internal_knowledge"
+    "strategy": "internal_knowledge",
+    "search_term": ""
   }}
 }}
 
@@ -112,16 +116,18 @@ User query: "Who won the World Cup in 2022?"
   "name": "AdaptiveStrategy",
   "arguments": {{
     "reasoning": "This is a factual question that requires a single lookup to verify.",
-    "strategy": "single_retrieval"
+    "strategy": "single_retrieval",
+    "search_term": "winner of World Cup 2022"
   }}
 }}
 
-User query: "How do solid-state batteries work and what are their applications?"
+User query: "In which city was [director's name] born?" (Assuming context says director is Christopher Nolan)
 {{
   "name": "AdaptiveStrategy",
   "arguments": {{
-    "reasoning": "This query asks for an explanation of a complex technology and its applications, requiring in-depth information.",
-    "strategy": "multi_step"
+    "reasoning": "I need to search for Christopher Nolan's birthplace. A single search is enough.",
+    "strategy": "single_retrieval",
+    "search_term": "Christopher Nolan birthplace"
   }}
 }}"""
         llm_strategy = llm.bind_tools([AdaptiveStrategy])
@@ -129,8 +135,11 @@ User query: "How do solid-state batteries work and what are their applications?"
         
         t_calls = extract_tool_calls(resp_strat)
         strategy = "multi_step" # Default in caso di errore
+        search_term = query
         if t_calls and t_calls[0]["name"] == "AdaptiveStrategy":
             strategy = t_calls[0]["args"].get("strategy", "multi_step")
+            search_term = t_calls[0]["args"].get("search_term", query)
+            if not search_term: search_term = query
             print(f"[PLANNER] Strategia selezionata: {strategy.upper()}")
         else:
             print("[PLANNER] Strategia di fallback: MULTI_STEP")
@@ -141,9 +150,9 @@ User query: "How do solid-state batteries work and what are their applications?"
             step_context += f"Internal Knowledge: {ans.content}\n"
             
         elif strategy == "single_retrieval":
-            print(f"[PLANNER] Eseguo Single Retrieval per -> '{query}'")
-            tool_result = web_search.invoke({"query": query})
-            step_context += f"Search Result ({query}): {tool_result}\n"
+            print(f"[PLANNER] Eseguo Single Retrieval per -> '{search_term}'")
+            tool_result = web_search.invoke({"query": search_term})
+            step_context += f"Search Result ({search_term}): {tool_result}\n"
             
         else:
             # MULTI-STEP REACT
