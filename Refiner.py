@@ -118,7 +118,7 @@ Tools to call (Parallel):
   }
 }
 
-IMPORTANT: YOU MUST OUTPUT EXACTLY AND ONLY VALID JSON BLOCKS AS SHOWN ABOVE.
+IMPORTANT: You can think out loud first (keep it extremely brief), but you MUST conclude your response with VALID JSON BLOCKS as shown above.
 """
 
     try:
