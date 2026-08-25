@@ -42,7 +42,7 @@ Your job is to apply Reflexion, Adaptive-RAG, and Self-RAG to route execution be
 1. REFLEXION: Look at the Refinement Count and Planning Count. If they are > 0, it means past attempts failed. Reflect on WHY they failed before deciding.
 2. ADAPTIVE-RAG (Routing based on complexity):
    - If Context is empty and query is 'complex' (multi-hop, multiple subjects) -> route to 'route_to_refinement'.
-   - If Context is empty and query is 'simple' or 'already_decomposed' (contains '---') -> route to 'route_to_planning'.
+   - If Context is empty and query is 'simple' or 'already_decomposed' (contains '---') -> route to 'route_to_planning', UNLESS the current query is critically flawed and needs more refinement (e.g., missing vocabulary).
 3. SELF-RAG (Critique of retrieval):
    - Evaluate `is_context_relevant` (Did the Planner find good documents?).
    - Evaluate `is_query_answered` (Is the exact answer to the Original Query present?).
@@ -141,6 +141,7 @@ CRITICAL RULE: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact E
 
     # 4. OVERRIDE DI SICUREZZA
     final_action = decision_obj.next_action
+        
     if final_action == "route_to_refinement" and num_ref >= MAX_REFINEMENT:
         final_action = "route_to_planning"
     elif final_action == "route_to_planning" and num_plan >= MAX_PLANNING:

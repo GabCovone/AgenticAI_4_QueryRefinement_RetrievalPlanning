@@ -64,6 +64,7 @@ Additionally, you **MUST** use the `reflection` field to explicitly analyze any 
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.
+   - CRITICAL RULE: If the user's query ALREADY contains "---", it has ALREADY been decomposed. DO NOT call `decompose_query` or `rewrite_query` again! You MUST ONLY call `expand_query` to append context.
 2. If the query is conversational, noisy, or grammatically incorrect -> Call `rewrite_query`.
 3. If the query is too short or lacks technical terminology -> Call `expand_query`.
 
