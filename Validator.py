@@ -50,7 +50,8 @@ Your job is to apply Reflexion, Adaptive-RAG, and Self-RAG to route execution be
    - If context is irrelevant or incomplete, give actionable `feedback` and route to 'route_to_refinement' (to rewrite query) or 'route_to_planning' (to search deeper).
 
 You can write your reasoning first (keep it extremely brief), but your response MUST contain a valid JSON block calling the ValidatorDecision tool.
-CRITICAL RULE: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact English keys: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action". Do not output Chinese characters like "方面".
+CRITICAL RULE 1: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact English keys: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action". Do not output Chinese characters like "方面".
+CRITICAL RULE 2: DO NOT resolve entities using your internal knowledge! If the query says "the author of X", refer to them as "the author of X" (or use placeholders) in your feedback. Do not pre-answer the query by naming the entity.
 
 --- FEW-SHOT EXAMPLE (DO NOT COPY THIS! Use it ONLY as a structural reference) ---
 {{
