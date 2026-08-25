@@ -13,8 +13,9 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
     Applies Phase 1 of the 'Least-to-Most Prompting' framework.
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
+    CRITICAL RULE: DO NOT answer the questions or resolve entities using your internal knowledge! You MUST use placeholders (like [Person], [Movie Name]) for entities that need to be discovered in previous steps.
     EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
-    The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"]
+    The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"] (DO NOT write 'Parasite', use the placeholder).
     """
     return sub_queries
 
