@@ -234,16 +234,22 @@ Context: "No previous context."
     synthesis_prompt = """You are the Final Synthesis Agent.
 Your task is to answer the original user question using ONLY the provided retrieved context.
 If the context does not contain sufficient information, admit that you do not have the answer. Do not hallucinate or invent data.
-Provide a direct, extremely concise, and brief response without unnecessary conversational filler. Keep your internal reasoning short."""
+Provide a direct, extremely concise, and brief response without unnecessary conversational filler. Keep your internal reasoning short.
+You MUST output a textual response. Do not leave the response blank."""
 
     original_query = state.get("original_query", str(queries))
     
     try:
-        synthesis_response = llm.invoke([
+        messages = [
             SystemMessage(content=synthesis_prompt),
-            HumanMessage(content=f"Original Question: {original_query}\n\nRetrieved Context:\n{global_context}")
-        ])
-        final_answer = synthesis_response.content
+            HumanMessage(content=f"Original Query: '{original_query}'\nRetrieved Context:\n{global_context}")
+        ]
+        synthesis_response = llm.invoke(messages)
+        final_answer = getattr(synthesis_response, "content", str(synthesis_response)).strip()
+        
+        if not final_answer:
+            print("[PLANNER ERROR] L'LLM ha restituito una risposta vuota. Inserimento fallback.")
+            final_answer = "Fallback: Unable to generate synthesis due to an unexpected LLM blank response."
     except Exception as e:
         print(f"[PLANNER ERROR] Errore in generazione sintesi: {e}")
         final_answer = "Errore durante la generazione della risposta finale."
