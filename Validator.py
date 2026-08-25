@@ -84,38 +84,41 @@ CRITICAL RULE: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact E
     
     content = getattr(response, "content", str(response))
     
-    # Estrai tutti gli oggetti JSON validi
-    brace_level = 0
-    current_json = ""
-    in_string = False
-    escape = False
-    
-    for char in content:
-        if char == '"' and not escape:
-            in_string = not in_string
-        if not in_string:
-            if char == '{':
-                brace_level += 1
-            elif char == '}':
-                brace_level -= 1
-        
-        if brace_level > 0 or (char == '}' and brace_level == 0 and current_json):
-            current_json += char
-            if brace_level == 0:
-                try:
-                    parsed = json.loads(current_json)
-                    if "name" in parsed:
-                        args = parsed.get("arguments", parsed.get("args", parsed))
-                        decision_obj = ValidatorDecision(**args)
-                        print("[VALIDATOR] Fallback parsing riuscito!")
-                        break # Abbiamo trovato la decisione
-                except Exception:
-                    pass
-                current_json = ""
-        elif char == '\\':
-            escape = not escape
-        else:
+    # NUOVO PARSER SUPER-ROBUSTO: Cerca ogni '{' e tenta di estrarre un JSON valido
+    for i in range(len(content)):
+        if content[i] == '{':
+            brace_level = 0
+            in_string = False
             escape = False
+            for j in range(i, len(content)):
+                char = content[j]
+                if char == '"' and not escape:
+                    in_string = not in_string
+                
+                if not in_string:
+                    if char == '{':
+                        brace_level += 1
+                    elif char == '}':
+                        brace_level -= 1
+                        
+                if brace_level == 0:
+                    try:
+                        parsed = json.loads(content[i:j+1])
+                        if "name" in parsed:
+                            args = parsed.get("arguments", parsed.get("args", parsed))
+                            decision_obj = ValidatorDecision(**args)
+                            print("[VALIDATOR] Fallback parsing riuscito (recuperato da blocco corrotto)!")
+                    except Exception:
+                        pass
+                    break # Esci dal ciclo interno (j), o è valido o si cerca la prossima '{'
+                    
+                if char == '\\':
+                    escape = not escape
+                else:
+                    escape = False
+                    
+        if decision_obj:
+            break
             
     if not decision_obj:
         if hasattr(response, "tool_calls") and response.tool_calls:

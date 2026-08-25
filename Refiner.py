@@ -147,42 +147,46 @@ IMPORTANT: YOU MUST OUTPUT EXACTLY AND ONLY VALID JSON BLOCKS AS SHOWN ABOVE.
     if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
         tool_calls_list = response_msg.tool_calls
     else:
-        # FALLBACK JSON PARSER CON BILANCIAMENTO PARENTESI
+        # FALLBACK JSON PARSER SUPER-ROBUSTO
         import json
         tool_calls_list = []
         content = getattr(response_msg, "content", str(response_msg))
         
-        # Estrai tutti gli oggetti JSON validi
-        brace_level = 0
-        current_json = ""
-        in_string = False
-        escape = False
-        
-        for char in content:
-            if char == '"' and not escape:
-                in_string = not in_string
-            if not in_string:
-                if char == '{':
-                    brace_level += 1
-                elif char == '}':
-                    brace_level -= 1
-            
-            if brace_level > 0 or (char == '}' and brace_level == 0 and current_json):
-                current_json += char
-                if brace_level == 0:
-                    try:
-                        parsed = json.loads(current_json)
-                        if "name" in parsed:
-                            t_name = parsed["name"]
-                            t_args = parsed.get("arguments", parsed.get("args", {}))
-                            tool_calls_list.append({"name": t_name, "args": t_args})
-                    except Exception:
-                        pass
-                    current_json = ""
-            elif char == '\\':
-                escape = not escape
-            else:
+        # NUOVO PARSER: Cerca ogni '{' e tenta di estrarre un JSON valido (supporta multiple tool calls)
+        i = 0
+        while i < len(content):
+            if content[i] == '{':
+                brace_level = 0
+                in_string = False
                 escape = False
+                for j in range(i, len(content)):
+                    char = content[j]
+                    if char == '"' and not escape:
+                        in_string = not in_string
+                    
+                    if not in_string:
+                        if char == '{':
+                            brace_level += 1
+                        elif char == '}':
+                            brace_level -= 1
+                            
+                    if brace_level == 0:
+                        try:
+                            parsed = json.loads(content[i:j+1])
+                            if "name" in parsed:
+                                t_name = parsed["name"]
+                                t_args = parsed.get("arguments", parsed.get("args", {}))
+                                tool_calls_list.append({"name": t_name, "args": t_args})
+                        except Exception:
+                            pass
+                        i = j # Salta i caratteri già elaborati
+                        break
+                        
+                    if char == '\\':
+                        escape = not escape
+                    else:
+                        escape = False
+            i += 1
                 
     if tool_calls_list:
         for tool_call in tool_calls_list:

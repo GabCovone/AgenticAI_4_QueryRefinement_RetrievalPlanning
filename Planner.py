@@ -35,29 +35,41 @@ def extract_tool_calls(response_msg):
     else:
         import json
         content = getattr(response_msg, "content", str(response_msg))
-        brace_level = 0
-        current_json = ""
-        in_string = False
-        escape = False
-        for char in content:
-            if char == '"' and not escape:
-                in_string = not in_string
-            if not in_string:
-                if char == '{': brace_level += 1
-                elif char == '}': brace_level -= 1
-            if brace_level > 0 or (char == '}' and brace_level == 0 and current_json):
-                current_json += char
-                if brace_level == 0:
-                    try:
-                        parsed = json.loads(current_json)
-                        if "name" in parsed:
-                            args = parsed.get("arguments", parsed.get("args", parsed))
-                            tool_calls_list.append({"name": parsed["name"], "args": args, "id": "fb_123"})
-                    except Exception:
-                        pass
-                    current_json = ""
-            elif char == '\\': escape = not escape
-            else: escape = False
+        
+        # NUOVO PARSER SUPER-ROBUSTO a finestra scorrevole
+        i = 0
+        while i < len(content):
+            if content[i] == '{':
+                brace_level = 0
+                in_string = False
+                escape = False
+                for j in range(i, len(content)):
+                    char = content[j]
+                    if char == '"' and not escape:
+                        in_string = not in_string
+                    
+                    if not in_string:
+                        if char == '{':
+                            brace_level += 1
+                        elif char == '}':
+                            brace_level -= 1
+                            
+                    if brace_level == 0:
+                        try:
+                            parsed = json.loads(content[i:j+1])
+                            if "name" in parsed:
+                                args = parsed.get("arguments", parsed.get("args", parsed))
+                                tool_calls_list.append({"name": parsed["name"], "args": args, "id": "fb_123"})
+                        except Exception:
+                            pass
+                        i = j # Salta i caratteri elaborati e vai oltre
+                        break
+                        
+                    if char == '\\':
+                        escape = not escape
+                    else:
+                        escape = False
+            i += 1
     return tool_calls_list
 
 
