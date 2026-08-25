@@ -126,6 +126,10 @@ You MUST output EXACTLY AND ONLY a valid JSON object calling the ValidatorDecisi
     if not decision_obj:
         print(f"[VALIDATOR] ERRORE: Qwen non ha restituito un JSON valido. Contenuto: {content}")
         decision_obj = ValidatorDecision(
+            reflection="Fallback triggered due to invalid JSON.",
+            query_complexity="complex",
+            is_context_relevant=False,
+            is_query_answered=False,
             reasoning="Fallback error: no valid JSON.", 
             feedback="", 
             next_action="finish"
