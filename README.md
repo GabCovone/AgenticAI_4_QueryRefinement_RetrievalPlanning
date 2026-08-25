@@ -20,7 +20,9 @@ The flow follows this life cycle:
 Each module of the system has been designed by implementing specific state-of-the-art (SOTA) theoretical frameworks in the fields of Agentic AI and Natural Language Processing. 
 
 ### 1. The Validator (`Validator.py`)
-Acts as the Conductor (input router) and Judge (output). It queries the model by imposing a rigorous JSON output schema (`ValidatorDecision`). It features a **robust, custom brace-matching JSON fallback parser** to seamlessly intercept and decode LLM decisions even when native framework parsers fail due to conversational noise or formatting artifacts (e.g., LaTeX).
+Acts as the Conductor (input router) and Judge (output). It queries the model by imposing a rigorous JSON output schema (`ValidatorDecision`). 
+* **Sliding-Window Try-Parse**: Features a custom, highly robust JSON fallback parser that scans the output independently evaluating every `{`. It provides total immunity to "Ghost Token Hallucinations" and premature JSON block restarts, seamlessly intercepting valid JSONs even when hidden behind corrupted formatting.
+* **Cross-Lingual Guardrails**: System prompts, few-shot examples, and external API calls (e.g. DuckDuckGo region locking) are strictly enforced in English to prevent cross-lingual cognitive load and "Few-Shot Leakage" (lazy copying of examples by the LLM during context confusion).
 * **Adaptive-RAG**: The model is forced to explicitly assess the input via a `query_complexity` attribute (simple, complex, already_decomposed), which mathematically dictates the initial routing strategy (Jeong et al., 2024). 
 * **Self-RAG**: After searches are executed, the Validator generates two explicit *Critique Tokens* (`is_context_relevant` and `is_query_answered`) to evaluate whether the extracted documents are semantically relevant and sufficient to logically support the original query (Asai et al., 2023). 
 * **Reflexion**: If the task fails, the Validator leverages a dedicated `reflection` attribute to critique the trajectory (e.g. Planning Count loops) and outputs a textual instruction for the next loop to avoid repeating mistakes (Shinn et al., 2023). 

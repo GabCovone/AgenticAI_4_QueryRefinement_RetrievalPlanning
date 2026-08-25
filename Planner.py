@@ -4,17 +4,20 @@ from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
 from graph import GraphState
 
 # --- 1. SETUP DEL RETRIEVER (DuckDuckGo API) ---
-ddg_search = DuckDuckGoSearchResults(max_results=3)
+# Forziamo i risultati in inglese per evitare snippet di Wikipedia in altre lingue
+wrapper = DuckDuckGoSearchAPIWrapper(region="us-en")
+ddg_search = DuckDuckGoSearchResults(api_wrapper=wrapper, max_results=3)
 
 @tool
 def web_search(query: str) -> str:
     """
-    Esegue una ricerca web per recuperare informazioni aggiornate e reali.
-    Argomento: La stringa di ricerca ottimizzata da inviare al motore.
-    Ritorna: Uno o più snippet di testo recuperati dalle pagine web.
+    Executes a web search to retrieve real-time and up-to-date information.
+    Argument: The optimized search string to send to the search engine.
+    Returns: One or more text snippets retrieved from English web pages.
     """
     try:
         results = ddg_search.invoke({"query": query})

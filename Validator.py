@@ -52,16 +52,16 @@ Your job is to apply Reflexion, Adaptive-RAG, and Self-RAG to route execution be
 You MUST output EXACTLY AND ONLY a valid JSON object calling the ValidatorDecision tool.
 CRITICAL RULE: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact English keys: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action". Do not output Chinese characters like "方面".
 
---- FEW-SHOT EXAMPLE ---
+--- FEW-SHOT EXAMPLE (DO NOT COPY THIS! Use it ONLY as a structural reference) ---
 {{
   "name": "ValidatorDecision",
   "arguments": {{
-    "reflection": "The planner ran once but found irrelevant info. We need to change the search terms.",
+    "reflection": "The planner searched for 'Apple' but retrieved documents about the fruit instead of the tech company.",
     "query_complexity": "already_decomposed",
     "is_context_relevant": false,
     "is_query_answered": false,
-    "reasoning": "The retrieved documents talk about the wrong person. The Refiner should add more specific keywords.",
-    "feedback": "Add the keyword 'director' to the query to disambiguate.",
+    "reasoning": "The retrieved context discusses agricultural yields and nutrition, which does not answer the original query about the iPhone release date.",
+    "feedback": "Add the keyword 'company' or 'iPhone' to disambiguate the search term.",
     "next_action": "route_to_refinement"
   }}
 }}

@@ -209,7 +209,7 @@ IMPORTANT: YOU MUST OUTPUT EXACTLY AND ONLY VALID JSON BLOCKS AS SHOWN ABOVE.
 
         # Pipe di concatenazione (Applica Query2doc alle query base/riscritte)
         if expansion_text:
-            final_queries = [f"{q} \n[Contesto Espanso]: {expansion_text}" for q in base_queries]
+            final_queries = [f"{q} \n[Expanded Context]: {expansion_text}" for q in base_queries]
         else:
             final_queries = base_queries
             
