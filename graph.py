@@ -36,7 +36,7 @@ def get_qwen_model():
         n_gpu_layers=-1,      
         n_ctx=4096,           
         temperature=0.1,      
-        max_tokens=1024,
+        max_tokens=2048,
         repeat_penalty=1.15,
         chat_format="chatml",
         verbose=False
