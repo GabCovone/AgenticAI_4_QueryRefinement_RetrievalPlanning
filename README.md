@@ -20,22 +20,22 @@ The flow follows this life cycle:
 Each module of the system has been designed by implementing specific state-of-the-art (SOTA) theoretical frameworks in the fields of Agentic AI and Natural Language Processing. 
 
 ### 1. The Validator (`Validator.py`)
-Acts as the Conductor (input router) and Judge (output). It queries the model by imposing a rigorous JSON output schema. It features a **robust, custom brace-matching JSON fallback parser** to seamlessly intercept and decode LLM decisions even when native framework parsers fail due to conversational noise or formatting artifacts (e.g., LaTeX).
-* **Initial Routing**: Evaluates the query complexity to decide the next node, based on the principles of Adaptive-RAG (Jeong et al., 2024). 
-* **Self-Reflective Validation**: At the end of the loop, evaluates whether the extracted documents logically support the original query, implementing the Self-RAG framework (Asai et al., 2023). 
-* **Feedback Loop**: If this fails, it generates a textual instruction for the next loop, leveraging the concepts of Reflexion (Shinn et al., 2023). 
+Acts as the Conductor (input router) and Judge (output). It queries the model by imposing a rigorous JSON output schema (`ValidatorDecision`). It features a **robust, custom brace-matching JSON fallback parser** to seamlessly intercept and decode LLM decisions even when native framework parsers fail due to conversational noise or formatting artifacts (e.g., LaTeX).
+* **Adaptive-RAG**: The model is forced to explicitly assess the input via a `query_complexity` attribute (simple, complex, already_decomposed), which mathematically dictates the initial routing strategy (Jeong et al., 2024). 
+* **Self-RAG**: After searches are executed, the Validator generates two explicit *Critique Tokens* (`is_context_relevant` and `is_query_answered`) to evaluate whether the extracted documents are semantically relevant and sufficient to logically support the original query (Asai et al., 2023). 
+* **Reflexion**: If the task fails, the Validator leverages a dedicated `reflection` attribute to critique the trajectory (e.g. Planning Count loops) and outputs a textual instruction for the next loop to avoid repeating mistakes (Shinn et al., 2023). 
 
 ### 2. The Refiner (`Refiner.py`)
-Module responsible for **Autonomous Query Refinement**. It does not perform database searches, but prepares the perfect query via tool-calling. Depending on the problem detected in the input query, the model autonomously chooses which tool to apply (even in parallel): 
+Module responsible for **Autonomous Query Refinement**. It does not perform database searches, but prepares the perfect query via tool-calling. Depending on the problem detected in the input query, the model autonomously chooses which tool to apply (even in parallel). To enforce the **Reflexion** framework, all tools require a mandatory `reflection` parameter where the LLM must critique its past attempts based on the Validator's feedback before acting.
 * **Decomposition Tool**: Implements Least-to-Most Prompting (Zhou et al., 2022) to divide complex queries into logical and sequential sub-problems. 
 * **Rewriting Tool**: Implements the Rewrite-Retrieve-Read framework (Ma et al., 2023) to correct ambiguous or poorly formulated queries. 
 * **Semantic Expansion Tool**: Exploits the Query2doc paradigm (Wang et al., 2023) to generate pseudo-documents or lists of key concepts to be concatenated to the original query, in order to maximize recall in the next vector step.
 
 ### 3. The Planner (`Planner.py`)
-The operational heart of the system, responsible for **Multi-Step Retrieval Planning**. It receives queries from the Refiner, classifies the required strategy, and actively accesses external search tools (vector databases, web search). 
-* **Strategic Classification**: It uses Adaptive-RAG (Jeong et al., 2024) again to decide whether the query requires internal knowledge, a single retrieval step, or a multi-step plan. 
-* **Multi-Step Execution**: It orchestrates data retrieval by intertwining reasoning and action, based on the ReAct operation loop (Yao et al., 2022) combined with IRCoT (Trivedi et al., 2022). 
-* **Dynamic Follow-ups**: If information is missing during a multi-step task, the Planner formulates sub-questions on the fly following the Self-Ask approach (Press et al., 2022). 
+The operational heart of the system, responsible for **Multi-Step Retrieval Planning**. It receives queries from the Refiner, classifies the required strategy, and actively accesses external search tools (vector databases, open web via DuckDuckGo). 
+* **Strategic Classification**: It uses Adaptive-RAG (Jeong et al., 2024) again to decide whether the sub-query requires internal knowledge, a single retrieval step, or a multi-step plan. 
+* **Context-Aware Execution (IRCoT)**: During `single_retrieval` and `internal_knowledge`, it explicitly injects the `global_context` of previously answered sub-queries to dynamically resolve missing entities and placeholders (e.g. replacing pronouns with discovered names) before querying the search engine.
+* **Multi-Step ReAct**: Orchestrates data retrieval by intertwining reasoning and action based on the ReAct operation loop (Yao et al., 2022), formulating dynamic follow-ups (Self-Ask) if the retrieved context is missing crucial information.
 
 ## Technology Stack and Setup
 * **Orchestration**: `langgraph` (state management and conditional loops). 
