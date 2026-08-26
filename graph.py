@@ -19,18 +19,18 @@ class GraphState(TypedDict):
 from huggingface_hub import hf_hub_download
 from langchain_community.chat_models import ChatLlamaCpp 
 
-REPO_ID = "stefancosma/Qwen3-14B-Instruct-Q4_K_M-GGUF" 
-FILENAME = "qwen3-14b-instruct-q4_k_m.gguf" 
+REPO_ID = "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF" 
+FILENAME = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf" 
 LOCAL_DIR = "./models"
 LOCAL_PATH = os.path.join(LOCAL_DIR, FILENAME)
 
-def get_qwen_model():
+def get_llama_model():
     if not os.path.exists(LOCAL_PATH):
         print(f"[INIT] Download da HuggingFace in corso...")
         os.makedirs(LOCAL_DIR, exist_ok=True)
         hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir=LOCAL_DIR)
         
-    print("[INIT] Caricamento del modello ChatLlamaCpp in graph.py...")
+    print("[INIT] Caricamento del modello Llama 3.1 in graph.py...")
     return ChatLlamaCpp(
         model_path=LOCAL_PATH,
         n_gpu_layers=-1,      
@@ -38,7 +38,7 @@ def get_qwen_model():
         temperature=0.1,      
         max_tokens=2048,
         repeat_penalty=1.15,
-        chat_format="chatml",
+        chat_format="llama-3",
         verbose=False
     )
 
@@ -61,7 +61,7 @@ def route_after_validator(state: GraphState) -> Literal["refinement_node", "plan
 # --- COSTRUZIONE DEL GRAFO ---
 def build_graph():
     # 1. Istanziamo il modello una volta sola
-    shared_llm = get_qwen_model()
+    shared_llm = get_llama_model()
 
     # 2. Inizializziamo il grafo passando la struttura dello Stato
     workflow = StateGraph(GraphState)
