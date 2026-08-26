@@ -73,40 +73,59 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
             
         import json
         decision_obj = None
-        i = 0
-        while i < len(content_resp):
-            if content_resp[i] == '{':
-                brace_level = 0
-                in_string = False
-                escape = False
-                for j in range(i, len(content_resp)):
-                    char = content_resp[j]
-                    if char == '"' and not escape: in_string = not in_string
-                    if not in_string:
-                        if char == '{': brace_level += 1
-                        elif char == '}': brace_level -= 1
-                    if brace_level == 0:
-                        try:
-                            parsed = json.loads(content_resp[i:j+1])
-                            if "name" in parsed:
-                                args = parsed.get("arguments", parsed.get("args", parsed))
-                                safe_args = {
-                                    "reflection": args.get("reflection", args.get("反思", "Fallback")),
-                                    "query_complexity": args.get("query_complexity", "complex"),
-                                    "is_context_relevant": args.get("is_context_relevant", False),
-                                    "is_query_answered": args.get("is_query_answered", False),
-                                    "reasoning": args.get("reasoning", args.get("理由", "Fallback")),
-                                    "feedback": args.get("feedback", args.get("反馈", "")),
-                                    "next_action": args.get("next_action", "route_to_planning")
-                                }
-                                decision_obj = ValidatorDecision(**safe_args)
-                                break
-                        except Exception: pass
-                        i = j
-                        break
-                    if char == '\\': escape = not escape
-                    else: escape = False
-            i += 1
+        
+        # 1. Controlliamo se ha usato tool_calls nativo
+        if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+            t_call = response_msg.tool_calls[0]
+            if t_call["name"] == "ValidatorDecision":
+                args = t_call["args"]
+                safe_args = {
+                    "reflection": args.get("reflection", "Fallback"),
+                    "query_complexity": args.get("query_complexity", "complex"),
+                    "is_context_relevant": args.get("is_context_relevant", False),
+                    "is_query_answered": args.get("is_query_answered", False),
+                    "reasoning": args.get("reasoning", "Fallback"),
+                    "feedback": args.get("feedback", ""),
+                    "next_action": args.get("next_action", "route_to_planning")
+                }
+                decision_obj = ValidatorDecision(**safe_args)
+        
+        # 2. Fallback su string parsing
+        if not decision_obj:
+            i = 0
+            while i < len(content_resp):
+                if content_resp[i] == '{':
+                    brace_level = 0
+                    in_string = False
+                    escape = False
+                    for j in range(i, len(content_resp)):
+                        char = content_resp[j]
+                        if char == '"' and not escape: in_string = not in_string
+                        if not in_string:
+                            if char == '{': brace_level += 1
+                            elif char == '}': brace_level -= 1
+                        if brace_level == 0:
+                            try:
+                                parsed = json.loads(content_resp[i:j+1])
+                                if "name" in parsed:
+                                    args = parsed.get("arguments", parsed.get("args", parsed))
+                                    safe_args = {
+                                        "reflection": args.get("reflection", args.get("反思", "Fallback")),
+                                        "query_complexity": args.get("query_complexity", "complex"),
+                                        "is_context_relevant": args.get("is_context_relevant", False),
+                                        "is_query_answered": args.get("is_query_answered", False),
+                                        "reasoning": args.get("reasoning", args.get("理由", "Fallback")),
+                                        "feedback": args.get("feedback", args.get("反馈", "")),
+                                        "next_action": args.get("next_action", "route_to_planning")
+                                    }
+                                    decision_obj = ValidatorDecision(**safe_args)
+                                    break
+                            except Exception: pass
+                            i = j
+                            break
+                        if char == '\\': escape = not escape
+                        else: escape = False
+                i += 1
             
         if not decision_obj:
             print("[VALIDATOR] JSON non trovato. Uso fallback sicuro.")
