@@ -38,12 +38,9 @@ If they are sub-queries, evaluate them individually.
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
 CRITICAL RULE 2: YOUR FEEDBACK MUST BE STRICTLY ABSTRACT AND META-COGNITIVE. 
 Options for 'next_action':
-- 'route_to_refinement': if the sub-query is still too broad, ambiguous, or needs decomposition/expansion.
-- 'route_to_planning': if the sub-query is well-formed and specific enough for document retrieval (CRITICAL: If the Context is empty but the sub-query is already clear, YOU MUST CHOOSE THIS OPTION!).
-
-You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
-
---- FEW-SHOT EXAMPLES (DO NOT COPY THESE! Use them ONLY as structural references) ---
+- 'route_to_refinement': if the sub-query is too broad, ambiguous, or is a MULTI-HOP question that requires decomposition (e.g., "city where the director of X was born"). ALSO use this if the Planner previously failed to find the answer, as the query needs expansion or decomposition.
+- 'route_to_planning': if the sub-query is a SINGLE, direct question ready for retrieval. (CRITICAL: If the Context is empty but the sub-query is already direct and simple, choose this option!).
+- 'finish': if the context and final answer successfully and completely resolve the user's sub-query.
 Example 1 (Ready to finish):
 {
   "name": "ValidatorDecision",
