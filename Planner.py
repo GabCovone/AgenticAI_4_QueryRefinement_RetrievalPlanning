@@ -163,7 +163,10 @@ User query: "In which city was [director's name] born?" (Assuming context says d
         if strategy == "internal_knowledge":
             prompt = f"PREVIOUS CONTEXT:\n{global_context if global_context else 'None'}\n\nQuestion: {query}\n\nAnswer briefly (use the context to resolve placeholders like [person]):"
             ans = llm.invoke([HumanMessage(content=prompt)])
-            step_context += f"Internal Knowledge: {ans.content}\n"
+            # Pulizia dei tag <think> per evitare crash della KV cache nei nodi successivi
+            import re
+            cleaned_ans = re.sub(r'<think>.*?</think>', '', getattr(ans, "content", str(ans)), flags=re.DOTALL).strip()
+            step_context += f"Internal Knowledge: {cleaned_ans}\n"
             
         elif strategy == "single_retrieval":
             print(f"[PLANNER] Eseguo Single Retrieval per -> '{search_term}'")
