@@ -167,8 +167,16 @@ CRITICAL RULE 2: DO NOT resolve entities using your internal knowledge! If the q
 
     # 4. OVERRIDE DI SICUREZZA
     final_action = decision_obj.next_action
+    
+    if final_action == "finish" and num_plan == 0:
+        print("[VALIDATOR OVERRIDE] Impossibile terminare senza aver prima eseguito il Planner. Forzo l'instradamento al Planner!")
+        final_action = "route_to_planning"
         
-    if final_action == "route_to_refinement" and num_ref >= MAX_REFINEMENT:
+    elif final_action == "route_to_refinement" and "---" in query and num_plan == 0:
+        print("[VALIDATOR OVERRIDE] La query è già scomposta, forzo il test sul Planner per evitare loop di allucinazione nel Refiner!")
+        final_action = "route_to_planning"
+        
+    elif final_action == "route_to_refinement" and num_ref >= MAX_REFINEMENT:
         final_action = "route_to_planning"
     elif final_action == "route_to_planning" and num_plan >= MAX_PLANNING:
         final_action = "finish"
