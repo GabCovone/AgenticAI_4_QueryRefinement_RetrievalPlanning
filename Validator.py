@@ -91,18 +91,20 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
         # 1. Controlliamo se ha usato tool_calls nativo
         if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
             t_call = response_msg.tool_calls[0]
-            if t_call["name"] == "ValidatorDecision":
-                args = t_call["args"]
-                safe_args = {
-                    "reflection": args.get("reflection", "Fallback"),
-                    "query_complexity": args.get("query_complexity", "complex"),
-                    "is_context_relevant": args.get("is_context_relevant", False) in [True, "true", "True", 1],
-                    "is_query_answered": args.get("is_query_answered", False) in [True, "true", "True", 1],
-                    "reasoning": args.get("reasoning", "Fallback"),
-                    "feedback": args.get("feedback", ""),
-                    "next_action": args.get("next_action", "route_to_planning")
-                }
+            args = t_call.get("args", {})
+            safe_args = {
+                "reflection": args.get("reflection", "Fallback"),
+                "query_complexity": args.get("query_complexity", "complex"),
+                "is_context_relevant": args.get("is_context_relevant", False) in [True, "true", "True", 1],
+                "is_query_answered": args.get("is_query_answered", False) in [True, "true", "True", 1],
+                "reasoning": args.get("reasoning", "Fallback"),
+                "feedback": args.get("feedback", ""),
+                "next_action": args.get("next_action", "route_to_planning")
+            }
+            try:
                 decision_obj = ValidatorDecision(**safe_args)
+            except Exception as e:
+                print(f"[VALIDATOR DEBUG] Pydantic validation failed on tool_calls: {e}")
         
         # 2. Fallback su string parsing
         if not decision_obj:
@@ -134,7 +136,9 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
                                     }
                                     decision_obj = ValidatorDecision(**safe_args)
                                     break
-                            except Exception: pass
+                            except Exception as e:
+                                print(f"[VALIDATOR DEBUG] Errore parsing JSON manuale: {e}")
+                                pass
                             i = j
                             break
                         if char == '\\': escape = not escape
@@ -143,6 +147,8 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
             
         if not decision_obj:
             print("[VALIDATOR] JSON non trovato. Uso fallback sicuro.")
+            print(f"[VALIDATOR DEBUG] Raw LLM Response Content: {content_resp}")
+            print(f"[VALIDATOR DEBUG] Raw LLM Tool Calls: {getattr(response_msg, 'tool_calls', 'NO TOOL CALLS')}")
             decision_obj = ValidatorDecision(reflection="Fallback", query_complexity="complex", is_context_relevant=False, is_query_answered=False, reasoning="Fallback", feedback="Fallback", next_action="route_to_planning")
             
         final_action = decision_obj.next_action
