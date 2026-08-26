@@ -44,20 +44,19 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
 
 # --- 2. NODO REFINER ---
 def refiner_node(state: GraphState, llm) -> dict:
-    """
-    Autonomous Query Refinement.
-    Usa il Parallel Tool Calling interpretando logicamente le docstring dei tool.
-    """
     print("\n--- [REFINER] Inizio analisi della query ---")
-    current_query = state.get("current_query", state.get("original_query", ""))
+    current_query_raw = state.get("current_query", state.get("original_query", ""))
     
-    # Bind dei tool al modello (ora le docstring complete vengono passate a Qwen)
+    # Dividiamo le sub-query per analizzarle singolarmente!
+    queries = [q.strip() for q in current_query_raw.split("\n---\n") if q.strip()]
+    if not queries:
+        queries = [current_query_raw]
+        
     tools = [decompose_query, expand_query, rewrite_query]
     llm_with_tools = llm.bind_tools(tools)
     
-    # --- 3. SYSTEM PROMPT CON CHAIN-OF-THOUGHT FEW-SHOTS ---
     system_prompt = """You are the Autonomous Query Refinement Agent.
-Your goal is to analyze the user's query and decide how to optimize it using your tools.
+Your goal is to analyze the user's query (or specific sub-query) and decide how to optimize it using your tools.
 You can use multiple tools simultaneously.
 Since you must return formatted outputs, you **MUST** formulate your Chain-of-Thought inside the `reasoning` field of the tools you call.
 Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator and critique your past attempts before making a decision.
@@ -67,14 +66,8 @@ CRITICAL RULE FOR ALL TOOLS: DO NOT answer the questions or resolve unknown enti
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.
-   - CRITICAL RULE: If the user's query ALREADY contains "---", it has ALREADY been decomposed. DO NOT call `decompose_query` or `rewrite_query` again! You MUST ONLY call `expand_query` to append context.
 2. If the query is conversational, noisy, or grammatically incorrect -> Call `rewrite_query`.
-3. If the query is too short or lacks technical terminology -> Call `expand_query`.
-
-PIPELINE CASCADE EXECUTION:
-You can combine tools. If you call multiple tools, they form a cascade pipeline:
-- Decomposition OR Rewriting happens first to establish the base queries.
-- Then, Semantic Expansion is generated and appended to the result.
+3. If you want to add a generic contextual expansion to the query -> Call `expand_query`.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -86,150 +79,99 @@ Tools to call:
   "arguments": {
     "reflection": "The Validator feedback (if any) indicates that the query is too complex for a single search. I must split it.",
     "reasoning": "The user asks about economic impact (GDP) and legal regulations (laws). A single vector search will fail, so I must split them.",
-    "sub_queries": ["What are the economic effects of climate change on GDP?", "What laws and regulations are implemented to mitigate climate change?"]
+    "sub_queries": ["What are the effects of climate change on GDP?", "What laws have been passed to mitigate climate change?"]
   }
 }
-
-User's query: "what state is this zip code 85282"
-Expected Action: Single factual question, but too short for semantic search.
-Tools to call:
-{
-  "name": "expand_query",
-  "arguments": {
-    "reflection": "There is no critical feedback, but the query is very short. I should expand it to improve recall.",
-    "reasoning": "The query is clear but lacks vocabulary. I will generate a pseudo-document with geographical context to improve vector recall.",
-    "pseudo_document": "Arizona, Maricopa County, Tempe, postal codes geography, US states, Southwest region."
-  }
-}
-
-User's query: "hey can u tell me how to fix physics crash returnal"
-Expected Action: Conversational noise, poor syntax, lacks technical terms. Needs rewrite AND expansion.
-Tools to call (Parallel):
-{
-  "name": "rewrite_query",
-  "arguments": {
-    "reflection": "The feedback indicates the query contains too much noise. I need to extract the core informational intent.",
-    "reasoning": "Removing conversational noise and formalizing syntax for search.",
-    "rewritten_query": "How to resolve physics engine crashes in the game Returnal"
-  }
-}
-{
-  "name": "expand_query",
-  "arguments": {
-    "reflection": "The feedback also suggests adding technical jargon to broaden the search.",
-    "reasoning": "Adding technical gaming context to expand the search surface.",
-    "pseudo_document": "Unreal Engine 4, PS5, PC port, Housemarque, collision bug, patch update, fatal error, graphics drivers, GPU crash."
-  }
-}
-
-IMPORTANT: You can think out loud first (keep it extremely brief), but you MUST conclude your response with VALID JSON BLOCKS as shown above.
 """
 
-    try:
-        feedback_history = state.get("feedback_history", [])
-        feedback_text = ""
-        if feedback_history:
-            feedback_text = f"\n\nFEEDBACK FROM VALIDATOR (CRITICAL: You must address these instructions):\n- " + "\n- ".join(feedback_history)
+    feedback_history = state.get("feedback_history", [])
+    feedback_text = ""
+    if feedback_history:
+        feedback_text = f"\n\nFEEDBACK FROM VALIDATOR (CRITICAL: You must address these instructions):\n- " + "\n- ".join(feedback_history)
+
+    final_processed_queries = []
+    tools_used_global = set()
+
+    for q_idx, q in enumerate(queries):
+        print(f"[REFINER] Analisi sotto-query {q_idx+1}/{len(queries)}: '{q}'")
+        try:
+            response_msg = llm_with_tools.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"Sub-query to analyze: '{q}'. Analyze the information need and call the appropriate tools.{feedback_text}")
+            ])
+        except Exception as e:
+            print(f"[REFINER ERROR] Inferenza fallita per la sub-query: {e}")
+            final_processed_queries.append(q)
+            continue
             
-        # L'LLM processerà il ragionamento e chiamerà i tool appropriati
-        response_msg = llm_with_tools.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User's query: '{current_query}'. Analyze the information need and call the appropriate tools.{feedback_text}")
-        ])
-    except Exception as e:
-        print(f"[REFINER ERROR] Inferenza fallita: {e}")
-        return {"current_query": current_query} 
-
-    # --- 4. GESTIONE DELLA PIPELINE IN PYTHON ---
-    base_queries = [current_query]
-    expansion_text = ""
-    tools_used = []
-    
-    decomposed_queries = None
-    rewritten_query = None
-
-    if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
-        tool_calls_list = response_msg.tool_calls
-    else:
-        # FALLBACK JSON PARSER SUPER-ROBUSTO
-        import json
         tool_calls_list = []
-        content = getattr(response_msg, "content", str(response_msg))
-        
-        # NUOVO PARSER: Cerca ogni '{' e tenta di estrarre un JSON valido (supporta multiple tool calls)
-        i = 0
-        while i < len(content):
-            if content[i] == '{':
-                brace_level = 0
-                in_string = False
-                escape = False
-                for j in range(i, len(content)):
-                    char = content[j]
-                    if char == '"' and not escape:
-                        in_string = not in_string
-                    
-                    if not in_string:
-                        if char == '{':
-                            brace_level += 1
-                        elif char == '}':
-                            brace_level -= 1
-                            
-                    if brace_level == 0:
-                        try:
-                            parsed = json.loads(content[i:j+1])
-                            if "name" in parsed:
-                                t_name = parsed["name"]
-                                t_args = parsed.get("arguments", parsed.get("args", {}))
-                                tool_calls_list.append({"name": t_name, "args": t_args})
-                        except Exception:
-                            pass
-                        i = j # Salta i caratteri già elaborati
-                        break
-                        
-                    if char == '\\':
-                        escape = not escape
-                    else:
-                        escape = False
-            i += 1
-                
-    if tool_calls_list:
-        for tool_call in tool_calls_list:
-            tools_used.append(tool_call['name'])
-            args = tool_call['args']
-            
-            # Recupero degli argomenti generati dal tool-calling
-            if tool_call['name'] == "decompose_query" and "sub_queries" in args:
-                decomposed_queries = args["sub_queries"]
-            elif tool_call['name'] == "rewrite_query" and "rewritten_query" in args:
-                rewritten_query = args["rewritten_query"]
-            elif tool_call['name'] == "expand_query" and "pseudo_document" in args:
-                expansion_text = args["pseudo_document"]
-
-        # Logica di risoluzione (priorità a decompose se presenti entrambi)
-        if decomposed_queries:
-            base_queries = decomposed_queries
-        elif rewritten_query:
-            base_queries = [rewritten_query]
-
-        # Pipe di concatenazione (Applica Query2doc alle query base/riscritte)
-        if expansion_text:
-            final_queries = [f"{q} \n[Expanded Context]: {expansion_text}" for q in base_queries]
+        if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+            tool_calls_list = response_msg.tool_calls
         else:
-            final_queries = base_queries
-            
-        # Uniamo le query in una singola stringa perché GraphState.current_query è di tipo str
-        final_query_str = "\n---\n".join(final_queries)
-            
-        print(f"[REFINER] Tool applicati: {', '.join(tools_used).upper()}")
-        print(f"[REFINER] Output finale:\n{final_query_str}")
-        
-        return {
-            "current_query": final_query_str,
-            "num_refinement": state.get("num_refinement", 0) + 1
-        }
+            import json
+            content_resp = getattr(response_msg, "content", str(response_msg))
+            i = 0
+            while i < len(content_resp):
+                if content_resp[i] == '{':
+                    brace_level = 0
+                    in_string = False
+                    escape = False
+                    for j in range(i, len(content_resp)):
+                        char = content_resp[j]
+                        if char == '"' and not escape:
+                            in_string = not in_string
+                        if not in_string:
+                            if char == '{': brace_level += 1
+                            elif char == '}': brace_level -= 1
+                        if brace_level == 0:
+                            try:
+                                parsed = json.loads(content_resp[i:j+1])
+                                if "name" in parsed:
+                                    t_name = parsed["name"]
+                                    t_args = parsed.get("arguments", parsed.get("args", {}))
+                                    tool_calls_list.append({"name": t_name, "args": t_args})
+                            except Exception: pass
+                            i = j
+                            break
+                        if char == '\\': escape = not escape
+                        else: escape = False
+                i += 1
+
+        if tool_calls_list:
+            decomposed_queries = None
+            rewritten_query = None
+            expansion_text = None
+            for tool_call in tool_calls_list:
+                tools_used_global.add(tool_call['name'])
+                args = tool_call['args']
+                if tool_call['name'] == "decompose_query" and "sub_queries" in args:
+                    decomposed_queries = args["sub_queries"]
+                elif tool_call['name'] == "rewrite_query" and "rewritten_query" in args:
+                    rewritten_query = args["rewritten_query"]
+                elif tool_call['name'] == "expand_query" and "pseudo_document" in args:
+                    expansion_text = args["pseudo_document"]
+
+            # Priorità: REWRITE > DECOMPOSE > EXPAND per questa specifica sub-query
+            if rewritten_query:
+                final_processed_queries.append(rewritten_query)
+            elif decomposed_queries:
+                final_processed_queries.extend(decomposed_queries)
+            elif expansion_text:
+                final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
+            else:
+                final_processed_queries.append(q)
+        else:
+            final_processed_queries.append(q)
+
+    # Ricomponiamo lo stato
+    final_query_str = "\n---\n".join(final_processed_queries)
+    if tools_used_global:
+        print(f"[REFINER] Tool globali applicati: {', '.join(tools_used_global).upper()}")
     else:
-        print("[REFINER] L'agente ha ritenuto la query perfetta. Nessun tool chiamato.")
-        return {
-            "current_query": current_query,
-            "num_refinement": state.get("num_refinement", 0) + 1
-        }
+        print("[REFINER] L'agente ha ritenuto tutte le query perfette. Nessun tool chiamato.")
+    print(f"[REFINER] Output finale:\n{final_query_str}")
+    
+    return {
+        "current_query": final_query_str,
+        "num_refinement": state.get("num_refinement", 0) + 1
+    }
