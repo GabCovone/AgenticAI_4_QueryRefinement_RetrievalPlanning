@@ -50,7 +50,7 @@ Your job is to apply Reflexion, Adaptive-RAG, and Self-RAG to route execution be
    - If context is irrelevant or incomplete, give actionable `feedback` and route to 'route_to_refinement' (to rewrite query) or 'route_to_planning' (to search deeper).
 
 You can write your reasoning first (keep it extremely brief), but your response MUST contain a valid JSON block calling the ValidatorDecision tool.
-CRITICAL RULE 1: DO NOT TRANSLATE THE JSON KEYS! You must strictly use the exact English keys: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action". Do not output Chinese characters like "方面".
+CRITICAL RULE 1: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
 CRITICAL RULE 2: DO NOT resolve entities using your internal knowledge! If the query says "the author of X", refer to them as "the author of X" (or use placeholders) in your feedback. Do not pre-answer the query by naming the entity.
 
 --- FEW-SHOT EXAMPLE (DO NOT COPY THIS! Use it ONLY as a structural reference) ---
@@ -107,11 +107,36 @@ CRITICAL RULE 2: DO NOT resolve entities using your internal knowledge! If the q
                         parsed = json.loads(content[i:j+1])
                         if "name" in parsed:
                             args = parsed.get("arguments", parsed.get("args", parsed))
-                            decision_obj = ValidatorDecision(**args)
-                            print("[VALIDATOR] Fallback parsing riuscito (recuperato da blocco corrotto)!")
-                    except Exception:
-                        pass
-                    break # Esci dal ciclo interno (j), o è valido o si cerca la prossima '{'
+                            
+                            # Mappatura manuale anti-cinese e anti-crash Pydantic
+                            safe_args = {
+                                "reflection": args.get("reflection", args.get("反思", "Fallback reflection")),
+                                "query_complexity": args.get("query_complexity", "complex"),
+                                "is_context_relevant": args.get("is_context_relevant", False),
+                                "is_query_answered": args.get("is_query_answered", False),
+                                "reasoning": args.get("reasoning", args.get("理由", "Fallback reasoning.")),
+                                "feedback": args.get("feedback", args.get("反馈", "")),
+                                "next_action": args.get("next_action", "route_to_planning") # Default safe
+                            }
+                            
+                            # Fix per valori booleani scritti come stringhe o altro
+                            if str(safe_args["is_context_relevant"]).lower() == "true": safe_args["is_context_relevant"] = True
+                            else: safe_args["is_context_relevant"] = False
+                            
+                            if str(safe_args["is_query_answered"]).lower() == "true": safe_args["is_query_answered"] = True
+                            else: safe_args["is_query_answered"] = False
+                            
+                            # Normalizza le opzioni limitate
+                            if safe_args["query_complexity"] not in ["simple", "complex", "already_decomposed"]:
+                                safe_args["query_complexity"] = "complex"
+                            if safe_args["next_action"] not in ["route_to_refinement", "route_to_planning", "finish"]:
+                                safe_args["next_action"] = "route_to_planning"
+                            
+                            decision_obj = ValidatorDecision(**safe_args)
+                            print("[VALIDATOR] Fallback parsing riuscito (recuperato da blocco corrotto/cinese)!")
+                            break # Usciamo dal ciclo interno se troviamo un JSON valido
+                    except Exception as e:
+                        pass # Continua a scorrere la finestra
                     
                 if char == '\\':
                     escape = not escape

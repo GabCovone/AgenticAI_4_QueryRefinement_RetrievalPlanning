@@ -113,6 +113,7 @@ Options:
 - 'multi_step': Use when the query is complex, requires iterative reasoning, or needs information from multiple sources.
 
 You can think out loud first (keep it extremely brief), but you MUST conclude your response with a VALID JSON BLOCK calling the 'AdaptiveStrategy' tool.
+CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -187,6 +188,7 @@ INSTRUCTIONS:
 2. If you already have enough information in the context, DO NOT call tools and answer with a concluding thought.
 
 You can think out loud first (keep it extremely brief), but you MUST conclude your response with VALID JSON BLOCKS calling the tools.
+CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -238,7 +240,8 @@ Context: "No previous context."
 Your task is to answer the original user question using ONLY the provided retrieved context.
 If the context does not contain sufficient information, admit that you do not have the answer. Do not hallucinate or invent data.
 Provide a direct, extremely concise, and brief response without unnecessary conversational filler. Keep your internal reasoning short.
-You MUST output a textual response. Do not leave the response blank."""
+You MUST output a textual response. Do not leave the response blank.
+CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances."""
 
     original_query = state.get("original_query", str(queries))
     
