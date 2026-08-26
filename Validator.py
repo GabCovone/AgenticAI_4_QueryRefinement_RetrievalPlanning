@@ -39,8 +39,7 @@ CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chin
 CRITICAL RULE 2: YOUR FEEDBACK MUST BE STRICTLY ABSTRACT AND META-COGNITIVE. 
 Options for 'next_action':
 - 'route_to_refinement': if the sub-query is still too broad, ambiguous, or needs decomposition/expansion.
-- 'route_to_planning': if the sub-query is well-formed and ready for document retrieval.
-- 'finish': if the context already contains the definitive answer to the sub-query.
+- 'route_to_planning': if the sub-query is well-formed and specific enough for document retrieval (CRITICAL: If the Context is empty but the sub-query is already clear, YOU MUST CHOOSE THIS OPTION!).
 
 You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
 

@@ -25,6 +25,7 @@ def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     Applies the 'Query2doc' framework for semantic expansion.
     WHEN TO USE: Use this tool when the query is clear and has a single subject, but is too short, vague, or lacks the technical jargon needed for effective retrieval.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you are expanding it.
+    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input.
     EXAMPLE: If the query is "car batteries that don't die in the cold".
     The `pseudo_document` argument must be: "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
     """
@@ -36,6 +37,7 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
     Applies the 'Rewrite-Retrieve-Read' framework for syntactic correction.
     WHEN TO USE: Use this tool for single queries that contain conversational noise (e.g., "hey can you tell me..."), grammatical errors, or convoluted syntax.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain your changes.
+    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name]).
     EXAMPLE: If the query is "hey listen but how do you figure out if the car engine has a broken head gasket?".
     The `rewritten_query` argument must be: "Symptoms and diagnostic methods for a damaged engine head gasket".
     """
