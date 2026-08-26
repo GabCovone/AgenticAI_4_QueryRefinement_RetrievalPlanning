@@ -43,7 +43,8 @@ Options for 'next_action':
 
 You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
 
---- FEW-SHOT EXAMPLE (DO NOT COPY THIS! Use it ONLY as a structural reference) ---
+--- FEW-SHOT EXAMPLES (DO NOT COPY THESE! Use them ONLY as structural references) ---
+Example 1 (Ready to finish):
 {
   "name": "ValidatorDecision",
   "arguments": {
@@ -52,8 +53,22 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
     "is_context_relevant": true,
     "is_query_answered": true,
     "reasoning": "The query is fully answered by the context.",
-    "feedback": "None.",
+    "feedback": "The context successfully answers the question.",
     "next_action": "finish"
+  }
+}
+
+Example 2 (Needs refinement due to empty context or vague query):
+{
+  "name": "ValidatorDecision",
+  "arguments": {
+    "reflection": "The context is empty and the query is too conversational.",
+    "query_complexity": "complex",
+    "is_context_relevant": false,
+    "is_query_answered": false,
+    "reasoning": "We have no context. The query needs to be rewritten to extract the core entities.",
+    "feedback": "Rewrite the query to be more direct. Do not resolve any entities.",
+    "next_action": "route_to_refinement"
   }
 }
 """

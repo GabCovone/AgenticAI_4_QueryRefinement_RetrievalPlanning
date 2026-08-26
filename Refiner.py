@@ -97,15 +97,15 @@ Tools to call:
   }
 }
 
-User's query: "how do I fix the thing where the game crashes on ps5"
-Expected Action: The query is noisy and conversational.
+User's query: "who is the mother of the guy who wrote the book harry potter?"
+Expected Action: The query is conversational and contains an unknown entity (the author).
 Tools to call:
 {
   "name": "rewrite_query",
   "arguments": {
-    "reflection": "The query is too conversational for a semantic search.",
-    "reasoning": "I need to rewrite this into a direct technical search query.",
-    "rewritten_query": "PS5 game crash fixes and troubleshooting steps"
+    "reflection": "The query contains conversational noise and asks to resolve an entity ('the guy who wrote').",
+    "reasoning": "I need to rewrite this formally and USE A PLACEHOLDER for the unknown author, without resolving it to J.K. Rowling.",
+    "rewritten_query": "Identify the mother of [Author of Harry Potter]"
   }
 }
 """
