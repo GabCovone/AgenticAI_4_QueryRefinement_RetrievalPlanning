@@ -44,6 +44,20 @@ Options for 'next_action':
 - 'finish': if the context already contains the definitive answer to the sub-query.
 
 You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
+
+--- FEW-SHOT EXAMPLE (DO NOT COPY THIS! Use it ONLY as a structural reference) ---
+{
+  "name": "ValidatorDecision",
+  "arguments": {
+    "reflection": "The context provides the required information.",
+    "query_complexity": "simple",
+    "is_context_relevant": true,
+    "is_query_answered": true,
+    "reasoning": "The query is fully answered by the context.",
+    "feedback": "None.",
+    "next_action": "finish"
+  }
+}
 """
 
     query_raw = state.get("current_query", state.get("original_query", ""))
@@ -82,8 +96,8 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
                 safe_args = {
                     "reflection": args.get("reflection", "Fallback"),
                     "query_complexity": args.get("query_complexity", "complex"),
-                    "is_context_relevant": args.get("is_context_relevant", False),
-                    "is_query_answered": args.get("is_query_answered", False),
+                    "is_context_relevant": args.get("is_context_relevant", False) in [True, "true", "True", 1],
+                    "is_query_answered": args.get("is_query_answered", False) in [True, "true", "True", 1],
                     "reasoning": args.get("reasoning", "Fallback"),
                     "feedback": args.get("feedback", ""),
                     "next_action": args.get("next_action", "route_to_planning")
@@ -112,8 +126,8 @@ You MUST conclude your response with a valid JSON block calling the ValidatorDec
                                     safe_args = {
                                         "reflection": args.get("reflection", args.get("反思", "Fallback")),
                                         "query_complexity": args.get("query_complexity", "complex"),
-                                        "is_context_relevant": args.get("is_context_relevant", False),
-                                        "is_query_answered": args.get("is_query_answered", False),
+                                        "is_context_relevant": args.get("is_context_relevant", False) in [True, "true", "True", 1],
+                                        "is_query_answered": args.get("is_query_answered", False) in [True, "true", "True", 1],
                                         "reasoning": args.get("reasoning", args.get("理由", "Fallback")),
                                         "feedback": args.get("feedback", args.get("反馈", "")),
                                         "next_action": args.get("next_action", "route_to_planning")
