@@ -82,6 +82,30 @@ Tools to call:
     "sub_queries": ["What are the effects of climate change on GDP?", "What laws have been passed to mitigate climate change?"]
   }
 }
+
+User's query: "car batteries that don't die in the cold"
+Expected Action: The query needs technical jargon.
+Tools to call:
+{
+  "name": "expand_query",
+  "arguments": {
+    "reflection": "The query lacks technical terms for effective retrieval.",
+    "reasoning": "Adding technical terminology about solid-state batteries and cold weather performance will improve search.",
+    "pseudo_document": "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
+  }
+}
+
+User's query: "how do I fix the thing where the game crashes on ps5"
+Expected Action: The query is noisy and conversational.
+Tools to call:
+{
+  "name": "rewrite_query",
+  "arguments": {
+    "reflection": "The query is too conversational for a semantic search.",
+    "reasoning": "I need to rewrite this into a direct technical search query.",
+    "rewritten_query": "PS5 game crash fixes and troubleshooting steps"
+  }
+}
 """
 
     feedback_history = state.get("feedback_history", [])
@@ -144,12 +168,14 @@ Tools to call:
             for tool_call in tool_calls_list:
                 tools_used_global.add(tool_call['name'])
                 args = tool_call['args']
-                if tool_call['name'] == "decompose_query" and "sub_queries" in args:
-                    decomposed_queries = args["sub_queries"]
-                elif tool_call['name'] == "rewrite_query" and "rewritten_query" in args:
-                    rewritten_query = args["rewritten_query"]
-                elif tool_call['name'] == "expand_query" and "pseudo_document" in args:
-                    expansion_text = args["pseudo_document"]
+                print(f"[REFINER DEBUG] Tool Call '{tool_call['name']}' con args: {args}")
+                
+                if tool_call['name'] == "decompose_query":
+                    decomposed_queries = args.get("sub_queries", args.get("queries"))
+                elif tool_call['name'] == "rewrite_query":
+                    rewritten_query = args.get("rewritten_query", args.get("query"))
+                elif tool_call['name'] == "expand_query":
+                    expansion_text = args.get("pseudo_document", args.get("expansion", args.get("context", args.get("expanded_context"))))
 
             # Priorità: REWRITE > DECOMPOSE > EXPAND per questa specifica sub-query
             if rewritten_query:
@@ -159,6 +185,7 @@ Tools to call:
             elif expansion_text:
                 final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
             else:
+                print(f"[REFINER DEBUG] Nessun argomento valido trovato nei tool calls. Query invariata.")
                 final_processed_queries.append(q)
         else:
             final_processed_queries.append(q)
