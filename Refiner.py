@@ -13,7 +13,7 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
     Applies Phase 1 of the 'Least-to-Most Prompting' framework.
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
-    CRITICAL RULE: DO NOT answer the questions or resolve entities using your internal knowledge! You MUST use placeholders (like [Person], [Movie Name]) for entities that need to be discovered in previous steps.
+    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name]).
     EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
     The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"] (DO NOT write 'Parasite', use the placeholder).
     """
@@ -62,7 +62,7 @@ Since you must return formatted outputs, you **MUST** formulate your Chain-of-Th
 Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator and critique your past attempts before making a decision.
 
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
-CRITICAL RULE FOR ALL TOOLS: DO NOT answer the questions or resolve unknown entities using your internal knowledge! If the query asks for "the author of X" or "the mother of Y", YOU MUST NOT write their actual names in your refined queries or expanded contexts. You MUST use generic placeholders (like [Author's Name], [Person's Mother]).
+CRITICAL RULE FOR ALL TOOLS: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name], [Target Entity]). If you resolve an entity using your internal knowledge, you will fail the task.
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.

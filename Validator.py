@@ -36,8 +36,7 @@ Your job is to evaluate if the current queries are ready for retrieval or if the
 If they are sub-queries, evaluate them individually.
 
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
-CRITICAL RULE 2: YOU WILL BE PENALIZED IF YOU RESOLVE ENTITIES USING INTERNAL KNOWLEDGE! If the query asks about an unknown entity (e.g., "the author of X", "the CEO of Y"), YOU MUST NOT write their real name in your feedback. You MUST strictly use the exact generic phrasing from the user's query or use placeholders like [Person]. DO NOT pre-answer the query in your feedback!
-
+CRITICAL RULE 2: YOUR FEEDBACK MUST BE STRICTLY ABSTRACT AND META-COGNITIVE. 
 Options for 'next_action':
 - 'route_to_refinement': if the sub-query is still too broad, ambiguous, or needs decomposition/expansion.
 - 'route_to_planning': if the sub-query is well-formed and ready for document retrieval.
