@@ -18,7 +18,7 @@ class ValidatorDecision(BaseModel):
     is_context_relevant: bool = Field(description="SELF-RAG: Is the retrieved context semantically relevant to the query?")
     is_query_answered: bool = Field(description="SELF-RAG: Does the context fully and completely answer the Original Query?")
     reasoning: str = Field(description="CHAIN OF THOUGHT: Combine the critiques above to justify your routing decision.")
-    feedback: str = Field(description="Instructions for the next agent (e.g. what keywords to use, what to search next). Empty if finish.")
+    feedback: str = Field(description="Specific instructions for the next agent. For Refiner: tell it which tool to use (decompose/rewrite/expand). For Planner: suggest exact search terms. Empty if finish.")
     next_action: Literal["route_to_refinement", "route_to_planning", "finish"] = Field(
         description="The next node to send the execution to."
     )
@@ -36,7 +36,11 @@ Your job is to evaluate if the current queries are ready for retrieval or if the
 If they are sub-queries, evaluate them individually.
 
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
-CRITICAL RULE 2: YOUR FEEDBACK MUST BE STRICTLY ABSTRACT AND META-COGNITIVE. 
+CRITICAL RULE 2: YOUR FEEDBACK MUST BE EXTREMELY SPECIFIC ABOUT WHAT THE NEXT AGENT MUST DO. 
+- If routing to 'route_to_refinement': Explicitly suggest which refinement tool to use AND briefly explain why (e.g., 'Decompose this multi-hop query into two sub-queries because it asks about two different entities', 'Rewrite to remove conversational noise', 'Expand with technical jargon to improve search results').
+- If routing to 'route_to_planning': Explicitly suggest the exact search strategy and keywords the Planner should use AND briefly explain why (e.g., 'Execute a web search for: Christopher Nolan birthplace, because the previous search did not mention his birthplace').
+- If routing to 'finish': Leave feedback empty.
+
 Options for 'next_action':
 - 'route_to_refinement': if the sub-query is too broad, ambiguous, or is a MULTI-HOP question that requires decomposition (e.g., "city where the director of X was born"). ALSO use this if the Planner previously failed to find the answer, as the query needs expansion or decomposition.
 - 'route_to_planning': if the sub-query is a SINGLE, direct question ready for retrieval. (CRITICAL: If the Context is empty but the sub-query is already direct and simple, choose this option!).
