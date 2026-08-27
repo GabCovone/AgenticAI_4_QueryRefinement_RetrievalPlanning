@@ -13,11 +13,9 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
     Applies Phase 1 of the 'Least-to-Most Prompting' framework.
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
-    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name]).
-    EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
-    The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"] (DO NOT write 'Parasite', use the placeholder).
+    CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities (e.g. [Director of X]). BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
+    The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"]
     """
-    return sub_queries
 
 @tool
 def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
@@ -25,10 +23,9 @@ def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     Applies the 'Query2doc' framework for semantic expansion.
     WHEN TO USE: Use this tool when the query is clear and has a single subject, but is too short, vague, or lacks the technical jargon needed for effective retrieval.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you are expanding it.
-    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input.
+    CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES.
     EXAMPLE: If the query is "car batteries that don't die in the cold".
     The `pseudo_document` argument must be: "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
-    """
     return pseudo_document
 
 @tool
@@ -37,11 +34,10 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
     Applies the 'Rewrite-Retrieve-Read' framework for syntactic correction.
     WHEN TO USE: Use this tool for single queries that contain conversational noise (e.g., "hey can you tell me..."), grammatical errors, or convoluted syntax.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain your changes.
-    CRITICAL RULE: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name]).
+    CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities (e.g. [Director of X]). BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
     EXAMPLE: If the query is "hey listen but how do you figure out if the car engine has a broken head gasket?".
     The `rewritten_query` argument must be: "Symptoms and diagnostic methods for a damaged engine head gasket".
     """
-    return rewritten_query
 
 
 # --- 2. NODO REFINER ---
@@ -64,12 +60,11 @@ Since you must return formatted outputs, you **MUST** formulate your Chain-of-Th
 Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator and critique your past attempts before making a decision.
 
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
-CRITICAL RULE FOR ALL TOOLS: YOUR REFINED QUERIES MUST BE ABSTRACT. You are strictly forbidden from writing ANY real names, people, or entities that are not explicitly present in the user's input. You MUST use generic placeholders (like [Author's Name], [Target Entity]). If you resolve an entity using your internal knowledge, you will fail the task.
+CRITICAL RULE FOR ALL TOOLS: Do NOT resolve unknown entities using your internal knowledge. If the user asks about an unknown entity (e.g. "the director of Inception"), you MUST use a placeholder (e.g. "[Director of Inception]") instead of their real name.
+HOWEVER, YOU MUST KEEP ALL ENTITIES THAT ARE EXPLICITLY MENTIONED BY THE USER in the original query (e.g. KEEP "Inception", do NOT replace it with "[Film Name]").
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.
-2. If the query is conversational, noisy, or grammatically incorrect -> Call `rewrite_query`.
-3. If you want to add a generic contextual expansion to the query -> Call `expand_query`.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -194,17 +189,13 @@ Tools to call:
                 elif tool_call['name'] == "expand_query":
                     expansion_text = args.get("pseudo_document", args.get("expansion", args.get("context", args.get("expanded_context"))))
 
-            # Priorità: REWRITE > DECOMPOSE > EXPAND per questa specifica sub-query
-            if rewritten_query:
-                final_processed_queries.append(rewritten_query)
-            elif decomposed_queries:
+            # Priorità: DECOMPOSE > REWRITE > EXPAND per questa specifica sub-query
+            if decomposed_queries:
                 final_processed_queries.extend(decomposed_queries)
+            elif rewritten_query:
+                final_processed_queries.append(rewritten_query)
             elif expansion_text:
                 final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
-            else:
-                print(f"[REFINER DEBUG] Nessun argomento valido trovato nei tool calls. Query invariata.")
-                final_processed_queries.append(q)
-        else:
             final_processed_queries.append(q)
 
     # Ricomponiamo lo stato
