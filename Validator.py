@@ -41,6 +41,11 @@ Options for 'next_action':
 - 'route_to_refinement': if the sub-query is too broad, ambiguous, or is a MULTI-HOP question that requires decomposition (e.g., "city where the director of X was born"). ALSO use this if the Planner previously failed to find the answer, as the query needs expansion or decomposition.
 - 'route_to_planning': if the sub-query is a SINGLE, direct question ready for retrieval. (CRITICAL: If the Context is empty but the sub-query is already direct and simple, choose this option!).
 - 'finish': if the context and final answer successfully and completely resolve the user's sub-query.
+
+You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
+
+--- FEW-SHOT EXAMPLES (DO NOT COPY THESE! Use them ONLY as structural references) ---
+
 Example 1 (Ready to finish):
 {
   "name": "ValidatorDecision",
@@ -66,6 +71,20 @@ Example 2 (Needs refinement due to empty context or vague query):
     "reasoning": "We have no context. The query needs to be rewritten to extract the core entities.",
     "feedback": "Rewrite the query to be more direct. Do not resolve any entities.",
     "next_action": "route_to_refinement"
+  }
+}
+
+Example 3 (Ready for Planning):
+{
+  "name": "ValidatorDecision",
+  "arguments": {
+    "reflection": "The query is specific and well-formed, but the context is empty.",
+    "query_complexity": "simple",
+    "is_context_relevant": false,
+    "is_query_answered": false,
+    "reasoning": "Since the query is already clear and uses placeholders correctly, it is ready for retrieval. We must route to planning to fetch the missing context.",
+    "feedback": "Proceed with document retrieval.",
+    "next_action": "route_to_planning"
   }
 }
 """
@@ -111,6 +130,7 @@ Example 2 (Needs refinement due to empty context or vague query):
                 "feedback": args.get("feedback", ""),
                 "next_action": args.get("next_action", "route_to_planning")
             }
+            print(f"[VALIDATOR DEBUG] Llama Decision: {safe_args}")
             try:
                 decision_obj = ValidatorDecision(**safe_args)
             except Exception as e:
