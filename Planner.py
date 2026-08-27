@@ -66,7 +66,7 @@ def extract_tool_calls(response_msg):
                                 t_args = {}
                                 if "name" in parsed:
                                     t_name = parsed["name"]
-                                    t_args = parsed.get("arguments", parsed.get("args", parsed))
+                                    t_args = parsed.get("arguments", parsed.get("args", parsed.get("parameters", parsed)))
                                 else:
                                     # Infer name from keys if 'name' wrapper is missing
                                     t_args = parsed

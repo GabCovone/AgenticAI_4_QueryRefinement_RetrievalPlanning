@@ -154,7 +154,7 @@ Example 3 (Ready for Planning):
                             try:
                                 parsed = json.loads(content_resp[i:j+1])
                                 if isinstance(parsed, dict):
-                                    args = parsed.get("arguments", parsed.get("args", parsed)) if "name" in parsed else parsed
+                                    args = parsed.get("arguments", parsed.get("args", parsed.get("parameters", parsed))) if "name" in parsed else parsed
                                     
                                     next_act = str(args.get("next_action", "route_to_planning")).lower()
                                     if next_act not in ["route_to_refinement", "route_to_planning", "finish"]:
