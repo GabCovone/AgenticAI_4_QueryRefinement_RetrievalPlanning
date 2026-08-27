@@ -153,8 +153,13 @@ Example 3 (Ready for Planning):
                         if brace_level == 0:
                             try:
                                 parsed = json.loads(content_resp[i:j+1])
-                                if "name" in parsed:
-                                    args = parsed.get("arguments", parsed.get("args", parsed))
+                                if isinstance(parsed, dict):
+                                    args = parsed.get("arguments", parsed.get("args", parsed)) if "name" in parsed else parsed
+                                    
+                                    next_act = str(args.get("next_action", "route_to_planning")).lower()
+                                    if next_act not in ["route_to_refinement", "route_to_planning", "finish"]:
+                                        next_act = "route_to_planning"
+                                        
                                     safe_args = {
                                         "reflection": args.get("reflection", args.get("反思", "Fallback")),
                                         "query_complexity": args.get("query_complexity", "complex"),
@@ -162,7 +167,7 @@ Example 3 (Ready for Planning):
                                         "is_query_answered": args.get("is_query_answered", False) in [True, "true", "True", 1],
                                         "reasoning": args.get("reasoning", args.get("理由", "Fallback")),
                                         "feedback": args.get("feedback", args.get("反馈", "")),
-                                        "next_action": args.get("next_action", "route_to_planning")
+                                        "next_action": next_act
                                     }
                                     decision_obj = ValidatorDecision(**safe_args)
                                     break
