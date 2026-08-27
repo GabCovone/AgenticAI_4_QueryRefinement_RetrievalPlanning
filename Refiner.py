@@ -14,8 +14,10 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
     CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities (e.g. [Director of X]). BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
+    EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
     The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"]
     """
+    return sub_queries
 
 @tool
 def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
@@ -26,6 +28,7 @@ def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES.
     EXAMPLE: If the query is "car batteries that don't die in the cold".
     The `pseudo_document` argument must be: "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
+    """
     return pseudo_document
 
 @tool
@@ -38,6 +41,7 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
     EXAMPLE: If the query is "hey listen but how do you figure out if the car engine has a broken head gasket?".
     The `rewritten_query` argument must be: "Symptoms and diagnostic methods for a damaged engine head gasket".
     """
+    return rewritten_query
 
 
 # --- 2. NODO REFINER ---
