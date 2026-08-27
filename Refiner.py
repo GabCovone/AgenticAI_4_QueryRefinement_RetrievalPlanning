@@ -200,6 +200,9 @@ Tools to call:
                 final_processed_queries.append(rewritten_query)
             elif expansion_text:
                 final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
+            else:
+                final_processed_queries.append(q)
+        else:
             final_processed_queries.append(q)
 
     # Ricomponiamo lo stato
