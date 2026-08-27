@@ -33,7 +33,8 @@ class AdaptiveStrategy(BaseModel):
 
 def extract_tool_calls(response_msg):
     tool_calls_list = []
-    if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+    # Usa tool_calls nativi solo se hanno argomenti non vuoti
+    if hasattr(response_msg, "tool_calls") and response_msg.tool_calls and all(tc.get("args") for tc in response_msg.tool_calls):
         tool_calls_list = response_msg.tool_calls
     else:
         import json
@@ -60,9 +61,22 @@ def extract_tool_calls(response_msg):
                     if brace_level == 0:
                         try:
                             parsed = json.loads(content[i:j+1])
-                            if "name" in parsed:
-                                args = parsed.get("arguments", parsed.get("args", parsed))
-                                tool_calls_list.append({"name": parsed["name"], "args": args, "id": "fb_123"})
+                            if isinstance(parsed, dict):
+                                t_name = None
+                                t_args = {}
+                                if "name" in parsed:
+                                    t_name = parsed["name"]
+                                    t_args = parsed.get("arguments", parsed.get("args", parsed))
+                                else:
+                                    # Infer name from keys if 'name' wrapper is missing
+                                    t_args = parsed
+                                    if "strategy" in t_args or "search_term" in t_args:
+                                        t_name = "AdaptiveStrategy"
+                                    elif "query" in t_args:
+                                        t_name = "web_search"
+                                
+                                if t_name:
+                                    tool_calls_list.append({"name": t_name, "args": t_args, "id": "fb_123"})
                         except Exception:
                             pass
                         i = j # Salta i caratteri elaborati e vai oltre

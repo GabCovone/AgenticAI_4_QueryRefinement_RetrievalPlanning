@@ -131,7 +131,8 @@ Tools to call:
             continue
             
         tool_calls_list = []
-        if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+        # Use native tool_calls only if they contain actual arguments
+        if hasattr(response_msg, "tool_calls") and response_msg.tool_calls and all(tc.get("args") for tc in response_msg.tool_calls):
             tool_calls_list = response_msg.tool_calls
         else:
             import json
@@ -152,10 +153,24 @@ Tools to call:
                         if brace_level == 0:
                             try:
                                 parsed = json.loads(content_resp[i:j+1])
-                                if "name" in parsed:
-                                    t_name = parsed["name"]
-                                    t_args = parsed.get("arguments", parsed.get("args", {}))
-                                    tool_calls_list.append({"name": t_name, "args": t_args})
+                                if isinstance(parsed, dict):
+                                    t_name = None
+                                    t_args = {}
+                                    if "name" in parsed:
+                                        t_name = parsed["name"]
+                                        t_args = parsed.get("arguments", parsed.get("args", parsed))
+                                    else:
+                                        # Infer name from keys if 'name' wrapper is missing
+                                        t_args = parsed
+                                        if "sub_queries" in t_args or "queries" in t_args:
+                                            t_name = "decompose_query"
+                                        elif "rewritten_query" in t_args or "query" in t_args:
+                                            t_name = "rewrite_query"
+                                        elif "pseudo_document" in t_args or "expansion" in t_args:
+                                            t_name = "expand_query"
+                                            
+                                    if t_name:
+                                        tool_calls_list.append({"name": t_name, "args": t_args})
                             except Exception: pass
                             i = j
                             break
