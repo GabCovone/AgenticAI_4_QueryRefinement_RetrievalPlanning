@@ -13,9 +13,10 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
     Applies Phase 1 of the 'Least-to-Most Prompting' framework.
     WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
-    CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities (e.g. [Director of X]). BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
-    EXAMPLE: If the query is "Who wrote the soundtrack for the movie that won the Oscar in 2020?"
-    The `sub_queries` argument must be: ["Which movie won the Oscar for best picture in 2020?", "Who composed the soundtrack for the movie [Movie Name]?"]
+    CRITICAL RULE: A multi-hop query must be broken down into a SEQUENCE of dependent steps. Step 1 should ask to identify the unknown entity (e.g., "Who is the director of the film Inception?"). Step 2 should ask the final question using a placeholder for the result of Step 1 (e.g., "In which city was [Director of Inception] born?"). DO NOT create two sub-queries that ask the exact same thing.
+    CRITICAL RULE 2: Do not resolve unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
+    EXAMPLE: If the query is "In which city was the director of the film Inception born?"
+    The `sub_queries` argument must be: ["Who is the director of the film Inception?", "In which city was [Director of Inception] born?"]
     """
     return sub_queries
 
@@ -72,15 +73,15 @@ TOOL SELECTION GUIDELINES:
 
 --- FEW-SHOT EXAMPLES ---
 
-User's query: "climate effects on gdp and laws to mitigate it"
-Expected Action: The query contains two distinct topics.
+User's query: "In which city was the director of the film Inception born?"
+Expected Action: The query is multi-hop. We need to identify the director first, and then their birthplace.
 Tools to call:
 {
   "name": "decompose_query",
   "arguments": {
-    "reflection": "The Validator feedback (if any) indicates that the query is too complex for a single search. I must split it.",
-    "reasoning": "The user asks about economic impact (GDP) and legal regulations (laws). A single vector search will fail, so I must split them.",
-    "sub_queries": ["What are the effects of climate change on GDP?", "What laws have been passed to mitigate climate change?"]
+    "reflection": "The Validator feedback indicates that the query is multi-hop and requires intermediate steps.",
+    "reasoning": "I must split this into a sequence. First, identify the director of Inception. Second, ask for the birthplace of that director using a placeholder.",
+    "sub_queries": ["Who is the director of the film Inception?", "In which city was [Director of Inception] born?"]
   }
 }
 
