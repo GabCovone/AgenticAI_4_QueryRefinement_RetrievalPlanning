@@ -35,10 +35,10 @@ def validator_node(state: GraphState, llm) -> dict:
 Your job is to evaluate if the current queries are ready for retrieval or if the final answer satisfies the original user query.
 If they are sub-queries, evaluate them individually.
 
-CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
+CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. You must strictly use the exact English keys for JSON: "reflection", "query_complexity", "is_context_relevant", "is_query_answered", "reasoning", "feedback", "next_action".
 CRITICAL RULE 2: YOUR FEEDBACK MUST BE EXTREMELY SPECIFIC ABOUT WHAT THE NEXT AGENT MUST DO. 
-- If routing to 'route_to_refinement': Explicitly suggest which refinement tool to use AND briefly explain why (e.g., 'Decompose this multi-hop query into two sub-queries because it asks about two different entities', 'Rewrite to remove conversational noise', 'Expand with technical jargon to improve search results').
-- If routing to 'route_to_planning': Explicitly suggest the exact search strategy and keywords the Planner should use AND briefly explain why (e.g., 'Execute a web search for: Christopher Nolan birthplace, because the previous search did not mention his birthplace').
+- If routing to 'route_to_refinement': Explicitly suggest which refinement tool to use AND briefly explain why. DO NOT parrot or copy the examples below verbatim. Formulate your own specific feedback based on the actual sub-query (e.g., suggest 'decompose_query' if it has multiple steps, or 'rewrite_query' if it's too conversational).
+- If routing to 'route_to_planning': Explicitly suggest the exact search strategy and keywords the Planner should use AND briefly explain why.
 - If routing to 'finish': Leave feedback empty.
 
 Options for 'next_action':
@@ -73,7 +73,7 @@ Example 2 (Needs refinement due to empty context or vague query):
     "is_context_relevant": false,
     "is_query_answered": false,
     "reasoning": "We have no context. The query needs to be rewritten to extract the core entities.",
-    "feedback": "Rewrite the query to be more direct. Do not resolve any entities.",
+    "feedback": "Rewrite the query to remove conversational noise like 'Can you please tell me'.",
     "next_action": "route_to_refinement"
   }
 }
@@ -171,7 +171,9 @@ Example 4 (Atomic query with a placeholder):
                             elif char == '}': brace_level -= 1
                         if brace_level == 0:
                             try:
-                                parsed = json.loads(content_resp[i:j+1])
+                                json_str = content_resp[i:j+1]
+                                json_str = json_str.replace(": False", ": false").replace(": True", ": true").replace(":False", ":false").replace(":True", ":true")
+                                parsed = json.loads(json_str)
                                 if isinstance(parsed, dict):
                                     args = parsed.get("arguments", parsed.get("args", parsed.get("parameters", parsed))) if "name" in parsed else parsed
                                     

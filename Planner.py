@@ -151,15 +151,16 @@ User query: "Who won the World Cup in 2022?"
   }}
 }}
 
-User query: "In which city was [director's name] born?" (Assuming context says director is Christopher Nolan)
+User query: "When was [CEO of Apple] born?" (Assuming context says CEO is Tim Cook)
 {{
   "name": "AdaptiveStrategy",
   "arguments": {{
-    "reasoning": "I need to search for Christopher Nolan's birthplace. A single search is enough.",
+    "reasoning": "I need to search for Tim Cook's birth date. A single search is enough.",
     "strategy": "single_retrieval",
-    "search_term": "Christopher Nolan birthplace"
+    "search_term": "Tim Cook birth date"
   }}
-}}"""
+}}
+CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based on the ACTUAL current query and context."""
         llm_strategy = llm.bind_tools([AdaptiveStrategy])
         resp_strat = llm_strategy.invoke([SystemMessage(content=strategy_prompt), HumanMessage(content=f"User query: '{query}'")])
         
@@ -199,6 +200,7 @@ PREVIOUSLY ACQUIRED CONTEXT (Use this to guide your reasoning):
 
 INSTRUCTIONS:
 1. Analyze the query. If you do not have the information in the context, CALL THE 'web_search' TOOL.
+- When formulating a search query for 'web_search', use precise and explicit terms. For example, instead of 'director of film X', search 'who directed the film X' to get better results.
 2. If you already have enough information in the context, DO NOT call tools and answer with a concluding thought.
 
 You can think out loud first (keep it extremely brief), but you MUST conclude your response with VALID JSON BLOCKS calling the tools.
