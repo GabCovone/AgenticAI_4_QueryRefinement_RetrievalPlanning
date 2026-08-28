@@ -43,13 +43,13 @@ FEEDBACK RULES ('feedback' field):
 - For 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
 - For 'route_to_planning': Suggest specific search keywords.
 - For 'finish': Leave empty.
-- CRITICAL: Formulate YOUR OWN feedback. DO NOT copy the few-shot examples verbatim.
 
-You MUST only use English and output a valid JSON block calling the ValidatorDecision tool.
+CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object that matches the tool schema. DO NOT output any conversational text before or after the JSON.
 
---- FEW-SHOT EXAMPLES (DO NOT COPY THESE! Use them ONLY as structural references) ---
+--- FEW-SHOT EXAMPLES ---
 
 Example 1 (Ready to finish):
+```json
 {
   "name": "ValidatorDecision",
   "arguments": {
@@ -62,8 +62,10 @@ Example 1 (Ready to finish):
     "next_action": "finish"
   }
 }
+```
 
 Example 2 (Needs refinement due to empty context or vague query):
+```json
 {
   "name": "ValidatorDecision",
   "arguments": {
@@ -76,8 +78,10 @@ Example 2 (Needs refinement due to empty context or vague query):
     "next_action": "route_to_refinement"
   }
 }
+```
 
 Example 3 (Ready for Planning):
+```json
 {
   "name": "ValidatorDecision",
   "arguments": {
@@ -90,6 +94,7 @@ Example 3 (Ready for Planning):
     "next_action": "route_to_planning"
   }
 }
+```
 """
 
     query_raw = state.get("current_query", state.get("original_query", ""))

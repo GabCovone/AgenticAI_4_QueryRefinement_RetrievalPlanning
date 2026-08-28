@@ -30,7 +30,7 @@ def get_llama_model():
         os.makedirs(LOCAL_DIR, exist_ok=True)
         hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir=LOCAL_DIR)
         
-    print("[INIT] Caricamento del modello Llama 3.1 in graph.py...")
+    print("[INIT] Caricamento del modello in graph.py...")
     return ChatLlamaCpp(
         model_path=LOCAL_PATH,
         n_gpu_layers=-1,      

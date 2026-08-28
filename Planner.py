@@ -127,12 +127,14 @@ STRATEGY OPTIONS:
 - 'multi_step': For complex queries needing iterative reasoning, multiple sources, OR comparing two distinct entities (e.g., "Are X and Y the same...").
 
 CRITICAL RULES:
-- MUST output a VALID JSON BLOCK calling the 'AdaptiveStrategy' tool.
+- You do not support native function calling. You MUST manually output a RAW JSON object calling the 'AdaptiveStrategy' tool.
+- DO NOT output any conversational text before or after the JSON.
 - MUST use ONLY ENGLISH. No Chinese characters.
 
 --- FEW-SHOT EXAMPLES ---
 
 User query: "What is 2+2?"
+```json
 {{
   "name": "AdaptiveStrategy",
   "arguments": {{
@@ -141,8 +143,10 @@ User query: "What is 2+2?"
     "search_term": ""
   }}
 }}
+```
 
 User query: "Who won the World Cup in 2022?"
+```json
 {{
   "name": "AdaptiveStrategy",
   "arguments": {{
@@ -151,8 +155,10 @@ User query: "Who won the World Cup in 2022?"
     "search_term": "winner of World Cup 2022"
   }}
 }}
+```
 
 User query: "When was [CEO of Apple] born?" (Assuming context says CEO is Tim Cook)
+```json
 {{
   "name": "AdaptiveStrategy",
   "arguments": {{
@@ -161,6 +167,7 @@ User query: "When was [CEO of Apple] born?" (Assuming context says CEO is Tim Co
     "search_term": "Tim Cook birth date"
   }}
 }}
+```
 CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based on the ACTUAL current query and context."""
         llm_strategy = llm.bind_tools([AdaptiveStrategy])
         resp_strat = llm_strategy.invoke([SystemMessage(content=strategy_prompt), HumanMessage(content=f"User query: '{query}'")])
@@ -202,16 +209,18 @@ INSTRUCTIONS:
 1. If the context lacks the answer, CALL 'web_search'. Use precise/explicit natural language terms (e.g., search 'who directed the film X', NOT 'director of film X').
 2. If the context has the answer, DO NOT call tools. Answer with a concluding thought.
 3. CRITICAL: Output ONLY English. No Chinese characters.
-4. MUST conclude your response with VALID JSON BLOCKS calling the tools.
+4. CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object representing the tool call. DO NOT output any conversational text.
 
 --- FEW-SHOT EXAMPLES ---
 
 Query: "Birthplace of Christopher Nolan"
 Context: "No previous context."
+```json
 {{
   "name": "web_search",
   "arguments": {{"query": "Christopher Nolan birthplace"}}
 }}
+```
 """
             messages = [
                 SystemMessage(content=system_prompt),

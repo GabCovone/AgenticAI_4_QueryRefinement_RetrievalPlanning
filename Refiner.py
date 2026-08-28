@@ -81,12 +81,15 @@ TOOL SELECTION GUIDELINES:
 - 'rewrite_query': To remove conversational noise.
 - 'expand_query': To add context if previous retrieval failed.
 
+CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object representing the tool call. DO NOT output any conversational text.
+
 You MUST formulate your Chain-of-Thought inside the `reasoning` field and critique feedback in the `reflection` field.
 --- FEW-SHOT EXAMPLES ---
 
 User's query: "In which city was the director of the film Inception born?"
 Expected Action: The query is multi-hop. We need to identify the director first, and then their birthplace.
 Tools to call:
+```json
 {
   "name": "decompose_query",
   "arguments": {
@@ -95,10 +98,12 @@ Tools to call:
     "sub_queries": ["Who is the director of the film Inception?", "In which city was [Director of Inception] born?"]
   }
 }
+```
 
 User's query: "who is the mother of the guy who wrote the book harry potter?"
 Expected Action: The query contains an unknown entity (the author).
 Tools to call:
+```json
 {
   "name": "rewrite_query",
   "arguments": {
@@ -107,10 +112,12 @@ Tools to call:
     "rewritten_query": "Identify the mother of [Author of Harry Potter]"
   }
 }
+```
 
 User's query: "In which city was [Director of Inception] born?"
 Expected Action: The query is already atomic and contains a placeholder.
 Tools to call:
+```json
 {
   "name": "keep_query_unchanged",
   "arguments": {
@@ -118,6 +125,7 @@ Tools to call:
     "reasoning": "Since it is already an atomic step, I will leave it unchanged."
   }
 }
+```
 """
 
     feedback_history = state.get("feedback_history", [])
