@@ -69,8 +69,8 @@ CRITICAL RULE FOR ALL TOOLS: Do NOT resolve unknown entities using your internal
 HOWEVER, YOU MUST KEEP ALL ENTITIES THAT ARE EXPLICITLY MENTIONED BY THE USER in the original query (e.g. KEEP "Inception", do NOT replace it with "[Film Name]").
 
 TOOL SELECTION GUIDELINES:
-1. If the query contains multiple concepts or distinct questions -> Call `decompose_query`.
-
+1. If the query contains multiple concepts, is a multi-hop question, or requires solving intermediate problems -> Call `decompose_query`.
+2. If the query is already a simple, single, atomic question (even if it contains a placeholder like `[Director of Inception]`), or if the Validator says it is ready for retrieval -> DO NOT call any tools. Just let it pass through unchanged.
 --- FEW-SHOT EXAMPLES ---
 
 User's query: "In which city was the director of the film Inception born?"

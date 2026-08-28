@@ -43,7 +43,7 @@ CRITICAL RULE 2: YOUR FEEDBACK MUST BE EXTREMELY SPECIFIC ABOUT WHAT THE NEXT AG
 
 Options for 'next_action':
 - 'route_to_refinement': if the sub-query is too broad, ambiguous, or is a MULTI-HOP question that requires decomposition (e.g., "city where the director of X was born"). ALSO use this if the Planner previously failed to find the answer, as the query needs expansion or decomposition.
-- 'route_to_planning': if the sub-query is a SINGLE, direct question ready for retrieval. (CRITICAL: If the Context is empty but the sub-query is already direct and simple, choose this option!).
+- 'route_to_planning': if the sub-query is a SINGLE, direct, atomic question ready for retrieval. CRITICAL: Queries containing placeholders (like `[Director of Inception]`) are ALREADY ATOMIC and SIMPLE. You MUST choose this option and proceed with document retrieval!
 - 'finish': if the context and final answer successfully and completely resolve the user's sub-query.
 
 You MUST conclude your response with a valid JSON block calling the ValidatorDecision tool.
