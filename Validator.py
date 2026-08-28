@@ -71,8 +71,8 @@ Example 2 (Needs refinement due to empty context or vague query):
     "query_complexity": "complex",
     "is_context_relevant": false,
     "is_query_answered": false,
-    "reasoning": "We have no context. The query needs to be rewritten to extract the core entities.",
-    "feedback": "Rewrite the query to remove conversational noise like 'Can you please tell me'.",
+    "reasoning": "The query needs to be rewritten or decomposed to extract the core entities.",
+    "feedback": "Rewrite the query to remove conversational noise and focus on the main entity.",
     "next_action": "route_to_refinement"
   }
 }
@@ -85,21 +85,7 @@ Example 3 (Ready for Planning):
     "query_complexity": "simple",
     "is_context_relevant": false,
     "is_query_answered": false,
-    "reasoning": "Since the query is already clear and uses placeholders correctly, it is ready for retrieval. We must route to planning to fetch the missing context.",
-    "feedback": "Proceed with document retrieval.",
-    "next_action": "route_to_planning"
-  }
-}
-
-Example 4 (Atomic query with a placeholder):
-{
-  "name": "ValidatorDecision",
-  "arguments": {
-    "reflection": "The query asks a single direct question about a placeholder entity.",
-    "query_complexity": "simple",
-    "is_context_relevant": false,
-    "is_query_answered": false,
-    "reasoning": "The query contains a placeholder '[Director of Inception]' which means it is an intermediate atomic step. It is ready for retrieval.",
+    "reasoning": "Since the query is already clear, it is ready for retrieval.",
     "feedback": "Proceed with document retrieval.",
     "next_action": "route_to_planning"
   }

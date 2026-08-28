@@ -123,8 +123,8 @@ PREVIOUSLY ACQUIRED CONTEXT (Use this to resolve placeholders like [name]):
 
 STRATEGY OPTIONS:
 - 'internal_knowledge': For trivial facts (math, capitals) where NO search is needed.
-- 'single_retrieval': For straightforward questions answerable with one search.
-- 'multi_step': For complex queries needing iterative reasoning or multiple sources.
+- 'single_retrieval': For straightforward questions answerable with one search. DO NOT use this for comparisons.
+- 'multi_step': For complex queries needing iterative reasoning, multiple sources, OR comparing two distinct entities (e.g., "Are X and Y the same...").
 
 CRITICAL RULES:
 - MUST output a VALID JSON BLOCK calling the 'AdaptiveStrategy' tool.

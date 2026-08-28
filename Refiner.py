@@ -96,26 +96,14 @@ Tools to call:
   }
 }
 
-User's query: "car batteries that don't die in the cold"
-Expected Action: The query needs technical jargon.
-Tools to call:
-{
-  "name": "expand_query",
-  "arguments": {
-    "reflection": "The query lacks technical terms for effective retrieval.",
-    "reasoning": "Adding technical terminology about solid-state batteries and cold weather performance will improve search.",
-    "pseudo_document": "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
-  }
-}
-
 User's query: "who is the mother of the guy who wrote the book harry potter?"
-Expected Action: The query is conversational and contains an unknown entity (the author).
+Expected Action: The query contains an unknown entity (the author).
 Tools to call:
 {
   "name": "rewrite_query",
   "arguments": {
-    "reflection": "The query contains conversational noise and asks to resolve an entity ('the guy who wrote').",
-    "reasoning": "I need to rewrite this formally and USE A PLACEHOLDER for the unknown author, without resolving it to J.K. Rowling.",
+    "reflection": "The query asks to resolve an entity ('the guy who wrote').",
+    "reasoning": "I need to rewrite this formally and USE A PLACEHOLDER for the unknown author, without resolving it.",
     "rewritten_query": "Identify the mother of [Author of Harry Potter]"
   }
 }
