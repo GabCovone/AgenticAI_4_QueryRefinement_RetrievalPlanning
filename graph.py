@@ -19,8 +19,8 @@ class GraphState(TypedDict):
 from huggingface_hub import hf_hub_download
 from langchain_community.chat_models import ChatLlamaCpp 
 
-REPO_ID = "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF" 
-FILENAME = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf" 
+REPO_ID = "unsloth/gpt-oss-20b-GGUF" 
+FILENAME = "gpt-oss-20b-Q4_K_M.gguf" 
 LOCAL_DIR = "./models"
 LOCAL_PATH = os.path.join(LOCAL_DIR, FILENAME)
 
@@ -38,7 +38,7 @@ def get_llama_model():
         temperature=0.1,      
         max_tokens=2048,
         repeat_penalty=1.15,
-        chat_format="llama-3",
+        chat_format="chatml",
         verbose=False
     )
 
