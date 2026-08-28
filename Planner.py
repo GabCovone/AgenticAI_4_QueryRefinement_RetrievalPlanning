@@ -230,11 +230,21 @@ Context: "No previous context."
                                 search_query = tool_call['args'].get('query', query)
                                 print(f"[PLANNER] Azione ReAct: Eseguo ricerca web per -> '{search_query}'")
                                 tool_result = web_search.invoke({"query": search_query})
-                                messages.append(ToolMessage(
-                                    content=str(tool_result),
-                                    name=tool_call['name'],
-                                    tool_call_id=tool_call.get('id', 'fb_123')
-                                ))
+                                
+                                # Se il tool call è stato fatto nativamente da LangChain:
+                                if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+                                    messages.append(ToolMessage(
+                                        content=str(tool_result),
+                                        name=tool_call['name'],
+                                        tool_call_id=tool_call.get('id', 'fb_123')
+                                    ))
+                                else:
+                                    # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
+                                    # per evitare che LangChain vada in crash ("Message has tool role, but no previous assistant tool call")
+                                    messages.append(HumanMessage(
+                                        content=f"Observation from tool '{tool_call['name']}': {tool_result}"
+                                    ))
+                                
                                 step_context += f"Search Result ({search_query}): {tool_result}\n"
                     else:
                         print("[PLANNER] Ragionamento concluso per questo step.")
