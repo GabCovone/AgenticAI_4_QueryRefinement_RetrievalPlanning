@@ -170,7 +170,7 @@ User query: "When was [CEO of Apple] born?" (Assuming context says CEO is Tim Co
 ```
 CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based on the ACTUAL current query and context."""
         llm_strategy = llm.bind_tools([AdaptiveStrategy])
-        resp_strat = llm_strategy.invoke([SystemMessage(content=strategy_prompt), HumanMessage(content=f"User query: '{query}'")])
+        resp_strat = llm_strategy.invoke([HumanMessage(content=f"{strategy_prompt}\n\nUser query: '{query}'")])
         
         t_calls = extract_tool_calls(resp_strat)
         strategy = "multi_step" # Default in caso di errore
@@ -223,8 +223,7 @@ Context: "No previous context."
 ```
 """
             messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Current query: {query}")
+                HumanMessage(content=f"{system_prompt}\n\nQuery to answer: '{query}'")
             ]
             
             for attempt in range(MAX_STEPS_PER_QUERY):
@@ -280,11 +279,9 @@ CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chin
     original_query = state.get("original_query", str(queries))
     
     try:
-        messages = [
-            SystemMessage(content=synthesis_prompt),
-            HumanMessage(content=f"Original Query: '{original_query}'\nRetrieved Context:\n{global_context}")
-        ]
-        synthesis_response = llm.invoke(messages)
+        synthesis_response = llm.invoke([
+            HumanMessage(content=f"{synthesis_prompt}\n\nOriginal Query: '{original_query}'\nRetrieved Context:\n{global_context}")
+        ])
         final_answer = getattr(synthesis_response, "content", str(synthesis_response)).strip()
         
         if not final_answer:

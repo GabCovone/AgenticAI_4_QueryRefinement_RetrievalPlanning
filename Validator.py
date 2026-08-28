@@ -117,9 +117,9 @@ Example 3 (Ready for Planning):
         print(f"[VALIDATOR] Valutazione sotto-query {q_idx+1}/{len(queries)}: '{q}'")
         try:
             full_queries_context = "\n".join([f"- {sq}" for sq in queries])
+            full_prompt = f"{system_prompt}\n\nAll current sub-queries:\n{full_queries_context}\n\nCurrently evaluating Sub-Query: '{q}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state for the CURRENT sub-query and output the JSON tool call."
             response_msg = llm_with_tools.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f"All current sub-queries:\n{full_queries_context}\n\nCurrently evaluating Sub-Query: '{q}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state for the CURRENT sub-query and output the JSON tool call.")
+                HumanMessage(content=full_prompt)
             ])
             content_resp = getattr(response_msg, "content", str(response_msg))
         except Exception as e:

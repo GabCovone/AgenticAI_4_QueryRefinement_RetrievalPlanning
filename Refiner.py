@@ -139,9 +139,9 @@ Tools to call:
     for q_idx, q in enumerate(queries):
         print(f"[REFINER] Analisi sotto-query {q_idx+1}/{len(queries)}: '{q}'")
         try:
+            full_prompt = f"{system_prompt}\n\nOriginal Query: '{current_query_raw}'\nCurrent Sub-Query: '{q}'\n\nFeedback from Validator:{feedback_text}\n\nAnalyze the feedback and output the JSON tool call."
             response_msg = llm_with_tools.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Sub-query to analyze: '{q}'. Analyze the information need and call the appropriate tools.{feedback_text}")
+                HumanMessage(content=full_prompt)
             ])
         except Exception as e:
             print(f"[REFINER ERROR] Inferenza fallita per la sub-query: {e}")
