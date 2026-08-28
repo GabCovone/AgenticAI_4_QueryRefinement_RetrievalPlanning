@@ -120,6 +120,19 @@ Tools to call:
 
     for q_idx, q in enumerate(queries):
         print(f"[REFINER] Analisi sotto-query {q_idx+1}/{len(queries)}: '{q}'")
+        
+        # Deterministic bypass: If Validator said proceed, do not ask the LLM to refine it again.
+        specific_feedback = ""
+        if feedback_history:
+            for f in feedback_history:
+                if f.startswith(f"For sub-query '{q}':"):
+                    specific_feedback = f
+        
+        if "Proceed with document retrieval" in specific_feedback:
+            print(f"[REFINER DEBUG] La query '{q}' è già atomica e pronta per il retrieval. Salto il raffinamento LLM.")
+            final_processed_queries.append(q)
+            continue
+            
         try:
             response_msg = llm_with_tools.invoke([
                 SystemMessage(content=system_prompt),

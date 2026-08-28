@@ -91,6 +91,20 @@ Example 3 (Ready for Planning):
     "next_action": "route_to_planning"
   }
 }
+
+Example 4 (Atomic query with a placeholder):
+{
+  "name": "ValidatorDecision",
+  "arguments": {
+    "reflection": "The query asks a single direct question about a placeholder entity.",
+    "query_complexity": "simple",
+    "is_context_relevant": false,
+    "is_query_answered": false,
+    "reasoning": "The query contains a placeholder '[Director of Inception]' which means it is an intermediate atomic step. It is ready for retrieval.",
+    "feedback": "Proceed with document retrieval.",
+    "next_action": "route_to_planning"
+  }
+}
 """
 
     query_raw = state.get("current_query", state.get("original_query", ""))
