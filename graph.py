@@ -38,7 +38,6 @@ def get_llama_model():
         temperature=0.1,      
         max_tokens=2048,
         repeat_penalty=1.15,
-        chat_format="chatml",
         verbose=False
     )
 
