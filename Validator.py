@@ -98,8 +98,12 @@ Example 3 (Ready for Planning):
         queries = [query_raw]
         
     context = state.get("retrieved_context", "")
+    
+    # SE ABBIAMO GIA' UNA FINAL ANSWER, VALUTIAMO SOLO LA QUERY ORIGINALE
     if state.get("final_answer"):
-        context += f"\n\nFinal Answer: {state['final_answer']}"
+        print("[VALIDATOR] Trovata Final Answer! Valuto se risponde alla query originale...")
+        queries = [state.get("original_query", "")]
+        context = f"Retrieved Context:\n{context}\n\nProposed Final Answer:\n{state['final_answer']}"
         
     feedbacks = []
     actions = []

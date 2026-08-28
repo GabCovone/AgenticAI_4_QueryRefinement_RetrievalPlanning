@@ -72,7 +72,7 @@ Optimize the given query or sub-query using the provided tools.
 
 CRITICAL RULES:
 1. AUTONOMY: The Validator's feedback is just a suggestion. If the query is ALREADY a single, atomic step (e.g., containing a single placeholder like `[Director of Inception]`), IGNORE the Validator's suggestion to decompose and call `keep_query_unchanged`.
-2. ENTITIES: DO NOT resolve unknown entities using internal knowledge. Use placeholders (e.g., "[Director of X]"). ALWAYS KEEP explicit entities mentioned by the user (e.g., keep "Inception", do not replace with "[Film]").
+2. ENTITIES: DO NOT resolve unknown entities using internal knowledge. Use placeholders for UNKNOWN entities (e.g., "[Director of X]"). NEVER wrap explicit, known names in placeholders (e.g., if the user asks about "Scott Derrickson", DO NOT output "[Director Scott Derrickson]". Keep it as "Scott Derrickson").
 3. LANGUAGE: Use strictly English. Do not output Chinese characters.
 
 TOOL SELECTION GUIDELINES:
