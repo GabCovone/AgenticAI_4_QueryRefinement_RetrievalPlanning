@@ -189,6 +189,16 @@ Tools to call:
                 
                 if tool_call['name'] == "decompose_query":
                     decomposed_queries = args.get("sub_queries", args.get("queries"))
+                    if isinstance(decomposed_queries, str):
+                        try:
+                            import json
+                            decomposed_queries = json.loads(decomposed_queries)
+                        except Exception:
+                            import ast
+                            try:
+                                decomposed_queries = ast.literal_eval(decomposed_queries)
+                            except Exception:
+                                decomposed_queries = [decomposed_queries]
                 elif tool_call['name'] == "rewrite_query":
                     rewritten_query = args.get("rewritten_query", args.get("query"))
                 elif tool_call['name'] == "expand_query":
