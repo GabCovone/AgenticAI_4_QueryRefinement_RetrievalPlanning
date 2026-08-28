@@ -116,18 +116,19 @@ def planner_node(state: GraphState, llm) -> dict:
         
         # 1. ADAPTIVE-RAG: Classificazione della strategia
         print("[PLANNER] [Adaptive-RAG] Valutazione della strategia...")
-        strategy_prompt = f"""You are a Strategic Planner. Your task is to classify the query to decide the best retrieval strategy.
+        strategy_prompt = f"""You are a Strategic Planner. Classify the query to decide the best retrieval strategy.
 
-PREVIOUSLY ACQUIRED CONTEXT (Use this to resolve placeholders like [name] in the query):
+PREVIOUSLY ACQUIRED CONTEXT (Use this to resolve placeholders like [name]):
 {global_context if global_context else "No previous context."}
 
-Options:
-- 'internal_knowledge': Use for trivial factual questions where no search is needed (e.g. math, capitals).
-- 'single_retrieval': Use when the query needs external information but is straightforward and can be answered with one search.
-- 'multi_step': Use when the query is complex, requires iterative reasoning, or needs information from multiple sources.
+STRATEGY OPTIONS:
+- 'internal_knowledge': For trivial facts (math, capitals) where NO search is needed.
+- 'single_retrieval': For straightforward questions answerable with one search.
+- 'multi_step': For complex queries needing iterative reasoning or multiple sources.
 
-You can think out loud first (keep it extremely brief), but you MUST conclude your response with a VALID JSON BLOCK calling the 'AdaptiveStrategy' tool.
-CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
+CRITICAL RULES:
+- MUST output a VALID JSON BLOCK calling the 'AdaptiveStrategy' tool.
+- MUST use ONLY ENGLISH. No Chinese characters.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -192,19 +193,16 @@ CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based 
         else:
             # MULTI-STEP REACT
             system_prompt = f"""You are a Multi-Step Research Agent.
-Your task is to find information to answer the current query. 
-You have access to the 'web_search' tool. Use it to search the internet.
+Find information to answer the query using the 'web_search' tool.
 
-PREVIOUSLY ACQUIRED CONTEXT (Use this to guide your reasoning):
+PREVIOUSLY ACQUIRED CONTEXT:
 {global_context if global_context else "No previous context."}
 
 INSTRUCTIONS:
-1. Analyze the query. If you do not have the information in the context, CALL THE 'web_search' TOOL.
-- When formulating a search query for 'web_search', use precise and explicit terms. For example, instead of 'director of film X', search 'who directed the film X' to get better results.
-2. If you already have enough information in the context, DO NOT call tools and answer with a concluding thought.
-
-You can think out loud first (keep it extremely brief), but you MUST conclude your response with VALID JSON BLOCKS calling the tools.
-CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
+1. If the context lacks the answer, CALL 'web_search'. Use precise/explicit natural language terms (e.g., search 'who directed the film X', NOT 'director of film X').
+2. If the context has the answer, DO NOT call tools. Answer with a concluding thought.
+3. CRITICAL: Output ONLY English. No Chinese characters.
+4. MUST conclude your response with VALID JSON BLOCKS calling the tools.
 
 --- FEW-SHOT EXAMPLES ---
 

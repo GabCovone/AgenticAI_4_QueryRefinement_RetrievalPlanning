@@ -68,19 +68,20 @@ def refiner_node(state: GraphState, llm) -> dict:
     llm_with_tools = llm.bind_tools(tools)
     
     system_prompt = """You are the Autonomous Query Refinement Agent.
-Your goal is to analyze the user's query (or specific sub-query) and decide how to optimize it using your tools.
-You can use multiple tools simultaneously.
-Since you must return formatted outputs, you **MUST** formulate your Chain-of-Thought inside the `reasoning` field of the tools you call.
-Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator. 
-CRITICAL AUTONOMY RULE: The Validator's feedback is just a SUGGESTION. You are the autonomous refinement expert. You must independently evaluate the sub-query. If the Validator suggests decomposing a query that is ALREADY a single, atomic step (e.g., it only contains one placeholder like `[Director of Inception]`), you MUST IGNORE the Validator's suggestion and call `keep_query_unchanged`. Do NOT blindly follow bad suggestions.
+Optimize the given query or sub-query using the provided tools.
 
-CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
-CRITICAL RULE FOR ALL TOOLS: Do NOT resolve unknown entities using your internal knowledge. If the user asks about an unknown entity (e.g. "the director of Inception"), you MUST use a placeholder (e.g. "[Director of Inception]") instead of their real name.
-HOWEVER, YOU MUST KEEP ALL ENTITIES THAT ARE EXPLICITLY MENTIONED BY THE USER in the original query (e.g. KEEP "Inception", do NOT replace it with "[Film Name]").
+CRITICAL RULES:
+1. AUTONOMY: The Validator's feedback is just a suggestion. If the query is ALREADY a single, atomic step (e.g., containing a single placeholder like `[Director of Inception]`), IGNORE the Validator's suggestion to decompose and call `keep_query_unchanged`.
+2. ENTITIES: DO NOT resolve unknown entities using internal knowledge. Use placeholders (e.g., "[Director of X]"). ALWAYS KEEP explicit entities mentioned by the user (e.g., keep "Inception", do not replace with "[Film]").
+3. LANGUAGE: Use strictly English. Do not output Chinese characters.
 
 TOOL SELECTION GUIDELINES:
-1. If the query contains multiple concepts, is a multi-hop question, or requires solving intermediate problems -> Call `decompose_query`.
-2. If the query is already a simple, single, atomic question (even if it contains a placeholder like `[Director of Inception]`), or if the Validator says it is ready for retrieval -> Call `keep_query_unchanged`.
+- 'decompose_query': If the query is multi-hop, contains multiple concepts, or requires intermediate steps.
+- 'keep_query_unchanged': If the query is already a simple, single, atomic question (even with placeholders) or ready for retrieval.
+- 'rewrite_query': To remove conversational noise.
+- 'expand_query': To add context if previous retrieval failed.
+
+You MUST formulate your Chain-of-Thought inside the `reasoning` field and critique feedback in the `reflection` field.
 --- FEW-SHOT EXAMPLES ---
 
 User's query: "In which city was the director of the film Inception born?"
