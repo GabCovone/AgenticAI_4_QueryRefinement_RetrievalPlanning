@@ -45,6 +45,15 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
     return rewritten_query
 
 
+@tool
+def keep_query_unchanged(reflection: str, reasoning: str) -> str:
+    """
+    Use this tool when the sub-query is already a simple, single, atomic question ready for retrieval.
+    WHEN TO USE: If the query contains a placeholder (like [Director of Inception]), or if the Validator feedback indicates it is ready for retrieval (e.g. 'Proceed with document retrieval').
+    INSTRUCTIONS: In the 'reflection' field, acknowledge the Validator's feedback and explicitly state that no refinement is needed.
+    """
+    return "UNCHANGED"
+
 # --- 2. NODO REFINER ---
 def refiner_node(state: GraphState, llm) -> dict:
     print("\n--- [REFINER] Inizio analisi della query ---")
@@ -55,14 +64,15 @@ def refiner_node(state: GraphState, llm) -> dict:
     if not queries:
         queries = [current_query_raw]
         
-    tools = [decompose_query, expand_query, rewrite_query]
+    tools = [decompose_query, expand_query, rewrite_query, keep_query_unchanged]
     llm_with_tools = llm.bind_tools(tools)
     
     system_prompt = """You are the Autonomous Query Refinement Agent.
 Your goal is to analyze the user's query (or specific sub-query) and decide how to optimize it using your tools.
 You can use multiple tools simultaneously.
 Since you must return formatted outputs, you **MUST** formulate your Chain-of-Thought inside the `reasoning` field of the tools you call.
-Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator and critique your past attempts before making a decision.
+Additionally, you **MUST** use the `reflection` field to explicitly analyze any feedback provided by the Validator. 
+CRITICAL AUTONOMY RULE: The Validator's feedback is just a SUGGESTION. You are the autonomous refinement expert. You must independently evaluate the sub-query. If the Validator suggests decomposing a query that is ALREADY a single, atomic step (e.g., it only contains one placeholder like `[Director of Inception]`), you MUST IGNORE the Validator's suggestion and call `keep_query_unchanged`. Do NOT blindly follow bad suggestions.
 
 CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances.
 CRITICAL RULE FOR ALL TOOLS: Do NOT resolve unknown entities using your internal knowledge. If the user asks about an unknown entity (e.g. "the director of Inception"), you MUST use a placeholder (e.g. "[Director of Inception]") instead of their real name.
@@ -70,7 +80,7 @@ HOWEVER, YOU MUST KEEP ALL ENTITIES THAT ARE EXPLICITLY MENTIONED BY THE USER in
 
 TOOL SELECTION GUIDELINES:
 1. If the query contains multiple concepts, is a multi-hop question, or requires solving intermediate problems -> Call `decompose_query`.
-2. If the query is already a simple, single, atomic question (even if it contains a placeholder like `[Director of Inception]`), or if the Validator says it is ready for retrieval -> DO NOT call any tools. Just let it pass through unchanged.
+2. If the query is already a simple, single, atomic question (even if it contains a placeholder like `[Director of Inception]`), or if the Validator says it is ready for retrieval -> Call `keep_query_unchanged`.
 --- FEW-SHOT EXAMPLES ---
 
 User's query: "In which city was the director of the film Inception born?"
@@ -108,6 +118,17 @@ Tools to call:
     "rewritten_query": "Identify the mother of [Author of Harry Potter]"
   }
 }
+
+User's query: "In which city was [Director of Inception] born?"
+Expected Action: The query is already atomic and contains a placeholder.
+Tools to call:
+{
+  "name": "keep_query_unchanged",
+  "arguments": {
+    "reflection": "The Validator feedback indicates it is ready for retrieval, and the query is a single atomic question with a placeholder.",
+    "reasoning": "Since it is already an atomic step, I will leave it unchanged."
+  }
+}
 """
 
     feedback_history = state.get("feedback_history", [])
@@ -120,19 +141,6 @@ Tools to call:
 
     for q_idx, q in enumerate(queries):
         print(f"[REFINER] Analisi sotto-query {q_idx+1}/{len(queries)}: '{q}'")
-        
-        # Deterministic bypass: If Validator said proceed, do not ask the LLM to refine it again.
-        specific_feedback = ""
-        if feedback_history:
-            for f in feedback_history:
-                if f.startswith(f"For sub-query '{q}':"):
-                    specific_feedback = f
-        
-        if "Proceed with document retrieval" in specific_feedback:
-            print(f"[REFINER DEBUG] La query '{q}' è già atomica e pronta per il retrieval. Salto il raffinamento LLM.")
-            final_processed_queries.append(q)
-            continue
-            
         try:
             response_msg = llm_with_tools.invoke([
                 SystemMessage(content=system_prompt),
@@ -181,6 +189,8 @@ Tools to call:
                                             t_name = "rewrite_query"
                                         elif "pseudo_document" in t_args or "expansion" in t_args:
                                             t_name = "expand_query"
+                                        else:
+                                            t_name = "keep_query_unchanged"
                                             
                                     if t_name:
                                         tool_calls_list.append({"name": t_name, "args": t_args})
@@ -195,6 +205,7 @@ Tools to call:
             decomposed_queries = None
             rewritten_query = None
             expansion_text = None
+            keep_unchanged = False
             for tool_call in tool_calls_list:
                 tools_used_global.add(tool_call['name'])
                 args = tool_call['args']
@@ -216,14 +227,18 @@ Tools to call:
                     rewritten_query = args.get("rewritten_query", args.get("query"))
                 elif tool_call['name'] == "expand_query":
                     expansion_text = args.get("pseudo_document", args.get("expansion", args.get("context", args.get("expanded_context"))))
+                elif tool_call['name'] == "keep_query_unchanged":
+                    keep_unchanged = True
 
-            # Priorità: DECOMPOSE > REWRITE > EXPAND per questa specifica sub-query
+            # Priorità: DECOMPOSE > REWRITE > EXPAND > KEEP per questa specifica sub-query
             if decomposed_queries:
                 final_processed_queries.extend(decomposed_queries)
             elif rewritten_query:
                 final_processed_queries.append(rewritten_query)
             elif expansion_text:
                 final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
+            elif keep_unchanged:
+                final_processed_queries.append(q)
             else:
                 final_processed_queries.append(q)
         else:
