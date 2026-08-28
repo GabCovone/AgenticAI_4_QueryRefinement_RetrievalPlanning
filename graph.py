@@ -19,8 +19,8 @@ class GraphState(TypedDict):
 from huggingface_hub import hf_hub_download
 from langchain_community.chat_models import ChatLlamaCpp 
 
-REPO_ID = "unsloth/gpt-oss-20b-GGUF" 
-FILENAME = "gpt-oss-20b-Q4_K_M.gguf" 
+REPO_ID = "bartowski/InternLM2.5-20B-Chat-GGUF" 
+FILENAME = "InternLM2.5-20B-Chat-Q4_K_M.gguf" 
 LOCAL_DIR = "./models"
 LOCAL_PATH = os.path.join(LOCAL_DIR, FILENAME)
 
