@@ -206,7 +206,8 @@ Tools to call:
             for tool_call in tool_calls_list:
                 tools_used_global.add(tool_call['name'])
                 args = tool_call['args']
-                print(f"[REFINER DEBUG] Tool Call '{tool_call['name']}' con args: {args}")
+                print(f"   💭 [REFINER] Reasoning: {args.get('reasoning', 'No reasoning provided')}")
+                print(f"   🛠️  [REFINER] Tool Call '{tool_call['name']}' con args: {args}")
                 
                 if tool_call['name'] == "decompose_query":
                     decomposed_queries = args.get("sub_queries", args.get("queries"))

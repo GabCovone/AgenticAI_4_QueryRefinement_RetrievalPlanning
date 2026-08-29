@@ -36,11 +36,8 @@ Evaluate if the current sub-query is ready for retrieval, needs refinement, or i
 
 ROUTING OPTIONS ('next_action'):
 1. 'finish': CHOOSE THIS FIRST if the Current Context or Final Answer completely answers the sub-query. DO NOT route to planning if you already have the answer.
-2. 'route_to_planning': Choose this if the sub-query is a SINGLE, ATOMIC question AND the answer is NOT yet in the context. Note: Queries with placeholders (e.g., "[Director of Inception]") ARE atomic and ready for planning.
-3. 'route_to_refinement': Choose this if the sub-query is ambiguous, conversational, or a MULTI-HOP question requiring decomposition.
-
-FEEDBACK RULES ('feedback' field):
-- For 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
+2. 'route_to_planning': Choose this if the sub-query is a SINGLE, ATOMIC question AND the answer is NOT yet in the context. Note: Queries with placeholders (e.g., "[Director of Inception]") ARE atomic and ready for planning. If the query is ALREADY a decomposed sub-query, ALWAYS choose this.
+3. 'route_to_refinement': Choose this ONLY if the sub-query is extremely ambiguous or a MULTI-HOP question that absolutely requires decomposition. DO NOT route to refinement if the query is already an atomic or decomposed sub-query. 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
 - For 'route_to_planning': Suggest specific search keywords.
 - For 'finish': Leave empty.
 
@@ -143,11 +140,12 @@ Example 3 (Ready for Planning):
                 "feedback": args.get("feedback", ""),
                 "next_action": args.get("next_action", "route_to_planning")
             }
-            print(f"[VALIDATOR DEBUG] Llama Decision: {safe_args}")
+            print(f"      💭 Reasoning: {safe_args['reasoning']}")
+            print(f"      ➡️  Action: {safe_args['next_action'].upper()}")
             try:
                 decision_obj = ValidatorDecision(**safe_args)
             except Exception as e:
-                print(f"[VALIDATOR DEBUG] Pydantic validation failed on tool_calls: {e}")
+                print(f"[VALIDATOR DEBUG] Pydantic validation failed: {e}")
         
         # 2. Fallback su string parsing
         if not decision_obj:
