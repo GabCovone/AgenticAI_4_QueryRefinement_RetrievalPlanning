@@ -282,24 +282,24 @@ INSTRUCTIONS:
                             else:
                                 tool_result = "Tool sconosciuto."
                                 
-                                # Print a preview of the retrieved text
-                                preview = str(tool_result)[:150].replace('\n', ' ') + "..."
-                                print(f"      📄 [PLANNER] Retrieved: {preview}")
-                                
-                                # Se il tool call è stato fatto nativamente da LangChain:
-                                if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
-                                    messages.append(ToolMessage(
-                                        content=str(tool_result),
-                                        name=tool_call['name'],
-                                        tool_call_id=tool_call.get('id', 'fb_123')
-                                    ))
-                                else:
-                                    # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
-                                    messages.append(HumanMessage(
-                                        content=f"Observation from tool '{tool_call['name']}': {tool_result}"
-                                    ))
-                                
-                                step_context += f"Search Result ({search_query}): {tool_result}\n"
+                            # Print a preview of the retrieved text
+                            preview = str(tool_result)[:150].replace('\n', ' ') + "..."
+                            print(f"      📄 [PLANNER] Retrieved: {preview}")
+                            
+                            # Se il tool call è stato fatto nativamente da LangChain:
+                            if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+                                messages.append(ToolMessage(
+                                    content=str(tool_result),
+                                    name=tool_call['name'],
+                                    tool_call_id=tool_call.get('id', 'fb_123')
+                                ))
+                            else:
+                                # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
+                                messages.append(HumanMessage(
+                                    content=f"Observation from tool '{tool_call['name']}': {tool_result}"
+                                ))
+                            
+                            step_context += f"Search Result ({search_query}): {tool_result}\n"
                     else:
                         if content_str:
                             # Rimuoviamo il tag json residuo se presente
