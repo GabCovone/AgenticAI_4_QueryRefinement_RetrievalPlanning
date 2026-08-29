@@ -236,7 +236,7 @@ Context: "No previous context."
                         for tool_call in t_calls_react:
                             if tool_call['name'] == "web_search":
                                 search_query = tool_call['args'].get('query', query)
-                                print(f"[PLANNER] Azione ReAct: Eseguo ricerca web per -> '{search_query}'")
+                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo ricerca web per -> '{search_query}'")
                                 tool_result = web_search.invoke({"query": search_query})
                                 
                                 # Se il tool call è stato fatto nativamente da LangChain:
@@ -272,9 +272,11 @@ Context: "No previous context."
 Your task is to answer the original user question using ONLY the provided retrieved context.
 If the context does not contain sufficient information, admit that you do not have the answer. Do not hallucinate or invent data.
 Provide a direct, extremely concise, and brief response without unnecessary conversational filler. Keep your internal reasoning short.
-CRITICAL RULE: Your final answer MUST explicitly connect the retrieved facts to the EXACT entities mentioned in the Original Query (e.g., if the query asks about 'the director of Inception', your answer must explicitly say 'The director of the film Inception, [Name], was born in...'). This proves to the Validator that the specific question was answered.
-You MUST output a textual response. Do not leave the response blank.
-CRITICAL LANGUAGE RULE: YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances."""
+
+CRITICAL RULES:
+1. Your final answer MUST explicitly connect the retrieved facts to the EXACT entities mentioned in the Original Query.
+2. If the Original Query is a Yes/No question, your final answer MUST start with "yes" or "no" (lowercase) followed by a brief explanation. This is required for automated benchmarking.
+3. YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances."""
 
     original_query = state.get("original_query", str(queries))
     

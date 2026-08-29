@@ -106,7 +106,7 @@ Example 3 (Ready for Planning):
     
     # SE ABBIAMO GIA' UNA FINAL ANSWER, VALUTIAMO SOLO LA QUERY ORIGINALE
     if state.get("final_answer"):
-        print("[VALIDATOR] Trovata Final Answer! Valuto se risponde alla query originale...")
+        print("\n🟢 [VALIDATOR] Trovata Final Answer! Valuto se risponde alla query originale...")
         queries = [state.get("original_query", "")]
         context = f"Retrieved Context:\n{context}\n\nProposed Final Answer:\n{state['final_answer']}"
         
@@ -114,7 +114,7 @@ Example 3 (Ready for Planning):
     actions = []
     
     for q_idx, q in enumerate(queries):
-        print(f"[VALIDATOR] Valutazione sotto-query {q_idx+1}/{len(queries)}: '{q}'")
+        print(f"\n⚙️  [VALIDATOR] Valutazione sotto-query {q_idx+1}/{len(queries)}: '{q}'")
         try:
             full_queries_context = "\n".join([f"- {sq}" for sq in queries])
             full_prompt = f"{system_prompt}\n\nAll current sub-queries:\n{full_queries_context}\n\nCurrently evaluating Sub-Query: '{q}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state for the CURRENT sub-query and output the JSON tool call."
@@ -123,7 +123,7 @@ Example 3 (Ready for Planning):
             ])
             content_resp = getattr(response_msg, "content", str(response_msg))
         except Exception as e:
-            print(f"[VALIDATOR ERROR] Errore API per la sub-query: {e}")
+            print(f"❌ [VALIDATOR ERROR] Errore API per la sub-query: {e}")
             actions.append("route_to_planning")
             continue
             
