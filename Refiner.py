@@ -214,6 +214,27 @@ Tools to call:
                         try:
                             import json
                             decomposed_queries = json.loads(decomposed_queries)
+                        except Exception:
+                            import ast
+                            try:
+                                decomposed_queries = ast.literal_eval(decomposed_queries)
+                            except Exception:
+                                decomposed_queries = [decomposed_queries]
+                elif tool_call['name'] == "rewrite_query":
+                    rewritten_query = args.get("rewritten_query", args.get("query"))
+                elif tool_call['name'] == "expand_query":
+                    expansion_text = args.get("pseudo_document", args.get("expansion", args.get("context", args.get("expanded_context"))))
+                elif tool_call['name'] == "keep_query_unchanged":
+                    keep_unchanged = True
+
+            # Priorità: DECOMPOSE > REWRITE > EXPAND > KEEP
+            if decomposed_queries:
+                final_processed_queries.extend(decomposed_queries)
+            elif rewritten_query:
+                final_processed_queries.append(rewritten_query)
+            elif expansion_text:
+                final_processed_queries.append(f"{q} \n[Expanded Context]: {expansion_text}")
+            elif keep_unchanged:
                 final_processed_queries.append(q)
             else:
                 final_processed_queries.append(q)
