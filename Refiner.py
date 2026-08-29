@@ -71,7 +71,7 @@ def refiner_node(state: GraphState, llm) -> dict:
 Optimize the given query or sub-query using the provided tools.
 
 CRITICAL RULES:
-1. AUTONOMY: The Validator's feedback is just a suggestion. If the query is ALREADY a single, atomic step (e.g., containing a single placeholder like `[Director of Inception]`), IGNORE the Validator's suggestion to decompose and call `keep_query_unchanged`.
+1. AUTONOMY: The Validator's feedback is just a suggestion. If the query contains MULTIPLE distinct entities being compared or intersected (e.g., 'X and Y', 'both A and B'), it is NOT atomic and MUST be decomposed. However, if the query has only ONE main entity or is a multi-hop sequential question (e.g., 'Who is the director of X?'), it IS atomic for your purposes, so you MUST ignore the Validator's suggestion to decompose and call `keep_query_unchanged`.
 2. ENTITIES: DO NOT resolve unknown entities using internal knowledge. Use placeholders for UNKNOWN entities (e.g., "[Director of X]"). NEVER wrap explicit, known names in placeholders (e.g., if the user asks about "Scott Derrickson", DO NOT output "[Director Scott Derrickson]". Keep it as "Scott Derrickson").
 3. LANGUAGE: Use strictly English. Do not output Chinese characters.
 
