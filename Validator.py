@@ -224,8 +224,18 @@ Example 3 (Ready for Planning):
     else:
         overall_action = "finish"
         
-    print(f"[VALIDATOR] Instradamento globale verso: {overall_action}")
-    return {
+    print(f"      ➡️  [VALIDATOR] Instradamento globale verso: {overall_action.upper()}")
+    
+    state_update = {
         "next_node": overall_action,
         "feedback_history": feedbacks if feedbacks else []
     }
+    
+    # Se avevamo una final answer ma il Validator l'ha bocciata (non finish)
+    if final_answer and overall_action != "finish":
+        print("   ♻️  [VALIDATOR] Final Answer bocciata o incompleta. Resetto lo stato per ritentare.")
+        state_update["final_answer"] = ""
+        state_update["queries"] = [original_query]
+        state_update["current_query"] = original_query
+        
+    return state_update
