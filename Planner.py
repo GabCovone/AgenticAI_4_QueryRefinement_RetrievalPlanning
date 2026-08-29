@@ -296,7 +296,7 @@ INSTRUCTIONS:
                             else:
                                 # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
                                 messages.append(HumanMessage(
-                                    content=f"Observation from tool '{tool_call['name']}': {tool_result}"
+                                    content=f"Observation from tool '{tool_call['name']}': {tool_result}\n\nAnalyze this observation. If you have the answer, output FINAL ANSWER: [answer]. Otherwise, write a Thought and output another JSON tool call."
                                 ))
                             
                             step_context += f"Search Result ({search_query}): {tool_result}\n"

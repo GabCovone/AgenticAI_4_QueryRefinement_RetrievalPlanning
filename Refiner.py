@@ -49,7 +49,7 @@ def rewrite_query(reflection: str, reasoning: str, rewritten_query: str) -> str:
 def keep_query_unchanged(reflection: str, reasoning: str) -> str:
     """
     Use this tool when the sub-query is already a simple, single, atomic question ready for retrieval.
-    WHEN TO USE: If the query contains a placeholder (like [Director of Inception]), or if the Validator feedback indicates it is ready for retrieval (e.g. 'Proceed with document retrieval').
+    WHEN TO USE: ONLY if the query asks ONE SINGLE thing about ONE SINGLE entity. NEVER use this if the query contains 'and', 'or', 'both', or compares two entities (you must use decompose_query instead).
     INSTRUCTIONS: In the 'reflection' field, acknowledge the Validator's feedback and explicitly state that no refinement is needed.
     """
     return "UNCHANGED"
@@ -124,19 +124,6 @@ Tools to call:
     "reflection": "The Validator feedback suggests search expansion due to lack of specific context.",
     "reasoning": "I need to generate a pseudo-document from my internal knowledge to enrich the retrieval system's vocabulary.",
     "pseudo_document": "Pokemon Green was released in Japan on February 27th, 1996. It was the first in the Pokemon series of games and served as the basis for Pokemon Red and Blue."
-  }
-}
-```
-
-User's query: "In which city was [Director of Inception] born?"
-Expected Action: The query is already atomic and contains a placeholder.
-Tools to call:
-```json
-{
-  "name": "keep_query_unchanged",
-  "arguments": {
-    "reflection": "The Validator feedback indicates it is ready for retrieval, and the query is a single atomic question with a placeholder.",
-    "reasoning": "Since it is already an atomic step, I will leave it unchanged."
   }
 }
 ```
