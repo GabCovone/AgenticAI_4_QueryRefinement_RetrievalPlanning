@@ -238,7 +238,6 @@ Example 3 (Ready for Planning):
     if current_final_answer and overall_action != "finish":
         print("   ♻️  [VALIDATOR] Final Answer bocciata o incompleta. Resetto lo stato per ritentare.")
         state_update["final_answer"] = ""
-        state_update["queries"] = [current_original_query]
         state_update["current_query"] = current_original_query
         
     return state_update

@@ -106,7 +106,12 @@ if __name__ == "__main__":
         "num_refinement": 0,
         "num_planning": 0,
         "next_node": "",
-        "feedback_history": []
+        "feedback_history": [],
+        "final_answer": ""
     }
 
-    print("Grafo compilato con successo!")
+    print("Grafo compilato con successo! Avvio esecuzione...")
+    
+    for output in app.stream(initial_state, {"recursion_limit": 50}):
+        for key, value in output.items():
+            print(f"\n--- Uscita dal nodo '{key}' ---")

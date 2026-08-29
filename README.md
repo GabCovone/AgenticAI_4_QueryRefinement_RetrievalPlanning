@@ -3,7 +3,7 @@
 This project implements an Agentic Information Retrieval (IR) system based on Large Language Models (LLMs). 
 The goal is to overcome the limitations of traditional unidirectional Retrieval-Augmented Generation (RAG) systems by introducing a cyclical and self-reflexive multi-agent architecture. 
 
-The system is able to manage complex information needs, assess the ambiguity of user queries, decompose them, plan multi-step retrieval strategies, and self-correct in the event of missing or contradictory information. Flow orchestration is performed using **LangGraph**, while the agentic logic is entrusted to a **Qwen 14B Instruct** model (quantized for execution on resource-constrained hardware such as Google Colab).
+The system is able to manage complex information needs, assess the ambiguity of user queries, decompose them, plan multi-step retrieval strategies, and self-correct in the event of missing or contradictory information. Flow orchestration is performed using **LangGraph**, while the agentic logic is entrusted to a **Gemma-2-9B-it** model (quantized for execution on resource-constrained hardware such as Google Colab).
 
 ## System Architecture
 
@@ -23,6 +23,7 @@ Each module of the system has been designed by implementing specific state-of-th
 Acts as the Conductor (input router) and Judge (output). It queries the model by imposing a rigorous JSON output schema (`ValidatorDecision`). 
 * **Sliding-Window Try-Parse**: Features a custom, highly robust JSON fallback parser that scans the output independently evaluating every `{`. It provides total immunity to "Ghost Token Hallucinations" and premature JSON block restarts, seamlessly intercepting valid JSONs even when hidden behind corrupted formatting.
 * **Cross-Lingual Guardrails**: System prompts, few-shot examples, and external API calls (e.g. DuckDuckGo region locking) are strictly enforced in English to prevent cross-lingual cognitive load and "Few-Shot Leakage" (lazy copying of examples by the LLM during context confusion).
+* **Logical State Routing**: Implements semantic structural evaluation combined with state-management resets. It correctly distinguishes between independent composite queries (routed to Refiner) and dependent follow-up sub-queries (routed to Planner), while actively preventing infinite ReAct loops by cleaning global state traces (`final_answer` resets) on retrieval failures.
 * **Adaptive-RAG**: The model is forced to explicitly assess the input via a `query_complexity` attribute (simple, complex, already_decomposed), which mathematically dictates the initial routing strategy (Jeong et al., 2024). 
 * **Self-RAG**: After searches are executed, the Validator generates two explicit *Critique Tokens* (`is_context_relevant` and `is_query_answered`) to evaluate whether the extracted documents are semantically relevant and sufficient to logically support the original query (Asai et al., 2023). 
 * **Reflexion**: If the task fails, the Validator leverages a dedicated `reflection` attribute to critique the trajectory (e.g. Planning Count loops) and outputs a textual instruction for the next loop to avoid repeating mistakes (Shinn et al., 2023). 
@@ -38,14 +39,15 @@ The operational heart of the system, responsible for **Multi-Step Retrieval Plan
 * **Strategic Classification**: It uses Adaptive-RAG (Jeong et al., 2024) again to decide whether the sub-query requires internal knowledge, a single retrieval step, or a multi-step plan. 
 * **Context-Aware Execution (IRCoT)**: During `single_retrieval` and `internal_knowledge`, it explicitly injects the `global_context` of previously answered sub-queries to dynamically resolve missing entities and placeholders (e.g. replacing pronouns with discovered names) before querying the search engine.
 * **Multi-Step ReAct**: Orchestrates data retrieval by intertwining reasoning and action based on the ReAct operation loop (Yao et al., 2022), formulating dynamic follow-ups (Self-Ask) if the retrieved context is missing crucial information.
+* **Transparent Execution Trace**: Fully exposes internal ReAct reasoning thoughts and truncated retrieved document snippets in the terminal, guaranteeing complete observability of the agent's logic and data sources.
 
 ## Technology Stack and Setup
 * **Orchestration**: `langgraph` (state management and conditional loops). 
 * **LLM Interaction**: `langchain` (tool binding and structured output). 
-* **Model**: `Qwen3-14B-Instruct` (GGUF Quantization Q4_K_M). 
+* **Model**: `bartowski/gemma-2-9b-it-GGUF` (Quantization Q4_K_M). 
 * **Inference Engine**: `llama-cpp-python` (compiled with CUDA 12.4+ support for full GPU offload). 
 
-> **Hardware note**: The 14 billion parameter, 4-bit quantized model was selected to fit within the VRAM (16 GB) limits of the NVIDIA T4 GPU provided by Google's free Colab tier, while providing superior logic and JSON formatting capabilities compared to standard 7B models.
+> **Hardware note**: The 9 billion parameter, 4-bit quantized model (approx. 6.5 GB) was selected to fit perfectly within both the VRAM (15 GB) and System RAM (12 GB) limits of the NVIDIA T4 GPU provided by Google's free Colab tier, while providing superior logic and JSON formatting capabilities compared to standard 7B models.
 
 ## References 
 The system is based on the following academic studies (sorted by role in the project): 
