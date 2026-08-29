@@ -10,6 +10,10 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from graph import GraphState
 
 # --- 1. SETUP DEI RETRIEVER ---
+import os
+# Impostiamo un User-Agent esplicito per evitare che l'API di Wikipedia blocchi l'IP di Google Colab
+os.environ["WIKIPEDIA_USER_AGENT"] = "AgenticAI_Bot/1.0 (student@university.edu)"
+
 # Wikipedia: Aumentiamo i limiti visto che Mistral Nemo ha un contesto ampio
 wiki_wrapper = WikipediaAPIWrapper(top_k_results=3, doc_content_chars_max=2500)
 wiki_tool = WikipediaQueryRun(api_wrapper=wiki_wrapper)
@@ -271,6 +275,7 @@ INSTRUCTIONS:
                     content_str = getattr(response_msg, "content", "").strip()
                     
                     if t_calls_react:
+                        observations_text = ""
                         for tool_call in t_calls_react:
                             search_query = tool_call['args'].get('query', query)
                             if tool_call['name'] == "web_search":
@@ -286,20 +291,21 @@ INSTRUCTIONS:
                             preview = str(tool_result)[:150].replace('\n', ' ') + "..."
                             print(f"      📄 [PLANNER] Retrieved: {preview}")
                             
-                            # Se il tool call è stato fatto nativamente da LangChain:
-                            if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
-                                messages.append(ToolMessage(
-                                    content=str(tool_result),
-                                    name=tool_call['name'],
-                                    tool_call_id=tool_call.get('id', 'fb_123')
-                                ))
-                            else:
-                                # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
-                                messages.append(HumanMessage(
-                                    content=f"Observation from tool '{tool_call['name']}': {tool_result}\n\nAnalyze this observation. If you have the answer, output FINAL ANSWER: [answer]. Otherwise, write a Thought and output another JSON tool call."
-                                ))
-                            
+                            observations_text += f"Observation from tool '{tool_call['name']}' (query: '{search_query}'): {tool_result}\n\n"
                             step_context += f"Search Result ({search_query}): {tool_result}\n"
+                        
+                        # Append a SINGLE message for all observations to maintain user/assistant alternation
+                        if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
+                            # If it was native tool calls, we need a ToolMessage for EACH call
+                            for idx, tool_call in enumerate(t_calls_react):
+                                messages.append(ToolMessage(
+                                    content=observations_text if idx==0 else "See previous ToolMessage",
+                                    name=tool_call['name'],
+                                    tool_call_id=tool_call.get('id', f'fb_{idx}')
+                                ))
+                        else:
+                            observations_text += "Analyze these observations. If you have the answer, output FINAL ANSWER: [answer]. Otherwise, write a Thought and output another JSON tool call."
+                            messages.append(HumanMessage(content=observations_text))
                     else:
                         if content_str:
                             # Rimuoviamo il tag json residuo se presente

@@ -74,6 +74,7 @@ CRITICAL RULES:
 1. AUTONOMY: The Validator's feedback is just a suggestion. If the query contains MULTIPLE distinct entities being compared or intersected (e.g., 'X and Y', 'both A and B'), it is NOT atomic and MUST be decomposed. However, if the query has only ONE main entity or is a multi-hop sequential question (e.g., 'Who is the director of X?'), it IS atomic for your purposes, so you MUST ignore the Validator's suggestion to decompose and call `keep_query_unchanged`.
 2. ENTITIES: DO NOT resolve unknown entities using internal knowledge. Use placeholders for UNKNOWN entities (e.g., "[Director of X]"). NEVER wrap explicit, known names in placeholders (e.g., if the user asks about "Scott Derrickson", DO NOT output "[Director Scott Derrickson]". Keep it as "Scott Derrickson").
 3. LANGUAGE: Use strictly English. Do not output Chinese characters.
+4. DO NOT DROP ENTITIES: If a query contains multiple distinct entities (e.g., 'X and Y'), you MUST use 'decompose_query'. Using 'rewrite_query' to delete one of the entities is STRICTLY FORBIDDEN.
 
 TOOL SELECTION GUIDELINES:
 - 'decompose_query': ONLY if the query consists of entirely independent parallel questions (e.g., "Are X and Y the same nationality?"). DO NOT use for multi-hop sequential questions.
@@ -86,7 +87,7 @@ CRITICAL INSTRUCTION: You do not support native function calling. You MUST manua
 You MUST formulate your Chain-of-Thought inside the `reasoning` field and critique feedback in the `reflection` field.
 --- FEW-SHOT EXAMPLES ---
 
-User's query: "Were Scott Derrickson and Ed Wood of the same nationality?"
+User's query: "Did Albert Einstein and Isaac Newton study at the same university?"
 Expected Action: The query requires comparing two independent entities.
 Tools to call:
 ```json
@@ -94,8 +95,8 @@ Tools to call:
   "name": "decompose_query",
   "arguments": {
     "reflection": "The Validator feedback indicates parallel searches are needed.",
-    "reasoning": "I must split this into independent queries to find the nationality of each person separately before comparing.",
-    "sub_queries": ["What is the nationality of Scott Derrickson?", "What is the nationality of Ed Wood?"]
+    "reasoning": "I must split this into independent queries to find the university of each person separately before comparing.",
+    "sub_queries": ["Which university did Albert Einstein study at?", "Which university did Isaac Newton study at?"]
   }
 }
 ```
