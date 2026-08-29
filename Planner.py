@@ -3,25 +3,25 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-from langchain_community.tools import DuckDuckGoSearchResults
-from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
 from graph import GraphState
 
-# --- 1. SETUP DEL RETRIEVER (DuckDuckGo API) ---
-# Forziamo i risultati in inglese per evitare snippet di Wikipedia in altre lingue
-wrapper = DuckDuckGoSearchAPIWrapper(region="us-en")
-ddg_search = DuckDuckGoSearchResults(api_wrapper=wrapper, max_results=3)
+# --- 1. SETUP DEL RETRIEVER (Wikipedia API) ---
+# Usiamo Wikipedia che restituisce paragrafi interi (ideale per HotpotQA)
+api_wrapper = WikipediaAPIWrapper(top_k_results=2, doc_content_chars_max=1500)
+wiki_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
 
 @tool
 def web_search(query: str) -> str:
     """
-    Executes a web search to retrieve real-time and up-to-date information.
-    Argument: The optimized search string to send to the search engine.
-    Returns: One or more text snippets retrieved from English web pages.
+    Executes a search on Wikipedia to retrieve detailed information and entities.
+    Argument: The exact entity or concept to search for.
+    Returns: Detailed text snippets retrieved from Wikipedia articles.
     """
     try:
-        results = ddg_search.invoke({"query": query})
-        return results
+        results = wiki_tool.invoke({"query": query})
+        return results if results else "Nessun risultato trovato su Wikipedia."
     except Exception as e:
         return f"Errore durante la ricerca: {str(e)}"
 
@@ -283,13 +283,13 @@ Context: "No previous context."
     
     synthesis_prompt = """You are the Final Synthesis Agent.
 Your task is to answer the original user question using ONLY the provided retrieved context.
-If the context does not contain sufficient information, admit that you do not have the answer. Do not hallucinate or invent data.
 Provide a direct, extremely concise, and brief response without unnecessary conversational filler. Keep your internal reasoning short.
 
 CRITICAL RULES:
-1. Your final answer MUST explicitly connect the retrieved facts to the EXACT entities mentioned in the Original Query.
-2. If the Original Query is a Yes/No question, your final answer MUST start with "yes" or "no" (lowercase) followed by a brief explanation. This is required for automated benchmarking.
-3. YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances."""
+1. STRICT GROUNDING: You must explicitly find the exact entities asked in the question within the text. If the retrieved context talks about a different entity, YOU DO NOT HAVE THE ANSWER.
+2. NO GUESSING: If the context does not contain sufficient information, reply EXACTLY with: "I do not have enough information." Do not invent data.
+3. If the Original Query is a Yes/No question, your final answer MUST start with "yes" or "no" (lowercase) followed by a brief explanation.
+4. YOU MUST ONLY USE ENGLISH. Do not use or output any Chinese characters under any circumstances."""
 
     original_query = state.get("original_query", str(queries))
     

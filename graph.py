@@ -24,14 +24,20 @@ FILENAME = "gemma-2-9b-it-Q4_K_M.gguf"
 LOCAL_DIR = "./models"
 LOCAL_PATH = os.path.join(LOCAL_DIR, FILENAME)
 
+_cached_llm = None
+
 def get_llama_model():
+    global _cached_llm
+    if _cached_llm is not None:
+        return _cached_llm
+        
     if not os.path.exists(LOCAL_PATH):
         print(f"[INIT] Download da HuggingFace in corso...")
         os.makedirs(LOCAL_DIR, exist_ok=True)
         hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir=LOCAL_DIR)
         
     print("[INIT] Caricamento del modello in graph.py...")
-    return ChatLlamaCpp(
+    _cached_llm = ChatLlamaCpp(
         model_path=LOCAL_PATH,
         n_gpu_layers=-1,      
         n_ctx=4096,           
@@ -40,6 +46,7 @@ def get_llama_model():
         repeat_penalty=1.15,
         verbose=False
     )
+    return _cached_llm
 
 # Importiamo i nodi dopo aver definito lo stato
 from Validator import validator_node
