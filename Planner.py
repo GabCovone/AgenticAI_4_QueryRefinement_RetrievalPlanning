@@ -193,8 +193,10 @@ CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based 
             step_context += f"Internal Knowledge: {cleaned_ans}\n"
             
         elif strategy == "single_retrieval":
-            print(f"[PLANNER] Eseguo Single Retrieval per -> '{search_term}'")
+            print(f"   🔎 [PLANNER] Eseguo Single Retrieval per -> '{search_term}'")
             tool_result = web_search.invoke({"query": search_term})
+            preview = str(tool_result)[:150].replace('\n', ' ') + "..."
+            print(f"      📄 [PLANNER] Retrieved: {preview}")
             step_context += f"Search Result ({search_term}): {tool_result}\n"
             
         else:
@@ -232,12 +234,19 @@ Context: "No previous context."
                     messages.append(response_msg)
                     
                     t_calls_react = extract_tool_calls(response_msg)
+                    
+                    content_str = getattr(response_msg, "content", "").strip()
+                    
                     if t_calls_react:
                         for tool_call in t_calls_react:
                             if tool_call['name'] == "web_search":
                                 search_query = tool_call['args'].get('query', query)
                                 print(f"   🌐 [PLANNER] Azione ReAct: Eseguo ricerca web per -> '{search_query}'")
                                 tool_result = web_search.invoke({"query": search_query})
+                                
+                                # Print a preview of the retrieved text
+                                preview = str(tool_result)[:150].replace('\n', ' ') + "..."
+                                print(f"      📄 [PLANNER] Retrieved: {preview}")
                                 
                                 # Se il tool call è stato fatto nativamente da LangChain:
                                 if hasattr(response_msg, "tool_calls") and response_msg.tool_calls:
@@ -248,14 +257,18 @@ Context: "No previous context."
                                     ))
                                 else:
                                     # Fallback: se abbiamo estratto il JSON manualmente dal testo, usiamo un HumanMessage
-                                    # per evitare che LangChain vada in crash ("Message has tool role, but no previous assistant tool call")
                                     messages.append(HumanMessage(
                                         content=f"Observation from tool '{tool_call['name']}': {tool_result}"
                                     ))
                                 
                                 step_context += f"Search Result ({search_query}): {tool_result}\n"
                     else:
-                        print("[PLANNER] Ragionamento concluso per questo step.")
+                        if content_str:
+                            # Rimuoviamo il tag json residuo se presente
+                            clean_thought = content_str.replace("```json", "").replace("```", "").strip()
+                            print(f"   💭 [PLANNER] Reasoning Conclusivo: {clean_thought[:200]}...")
+                        else:
+                            print("   💭 [PLANNER] Ragionamento concluso per questo step.")
                         break
                         
                 except Exception as e:

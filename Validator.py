@@ -35,9 +35,14 @@ def validator_node(state: GraphState, llm) -> dict:
 Evaluate if the current sub-query is ready for retrieval, needs refinement, or is already answered.
 
 ROUTING OPTIONS ('next_action'):
-1. 'finish': CHOOSE THIS FIRST if the Current Context or Final Answer completely answers the sub-query. DO NOT route to planning if you already have the answer.
-2. 'route_to_planning': Choose this if the sub-query is a SINGLE, ATOMIC question AND the answer is NOT yet in the context. Note: Queries with placeholders (e.g., "[Director of Inception]") ARE atomic and ready for planning. If the query is ALREADY a decomposed sub-query, ALWAYS choose this.
-3. 'route_to_refinement': Choose this ONLY if the sub-query is extremely ambiguous or a MULTI-HOP question that absolutely requires decomposition. DO NOT route to refinement if the query is already an atomic or decomposed sub-query. 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
+1. 'finish': CHOOSE THIS FIRST if the Current Context or Final Answer completely answers the sub-query.
+2. 'route_to_planning': Choose this if the sub-query represents a SINGLE search intent OR if it is a dependent follow-up question (e.g., "Among those, which ones..."). Dependent questions are ready for planning.
+3. 'route_to_refinement': Choose this ONLY if the sub-query contains multiple independent entities or facts that must be searched separately before they can be compared or combined (e.g., "Did X and Y go to the same school?" -> requires finding X's school and Y's school). 
+
+CRITICAL LOGIC RULE: Do not route to refinement simply because a question requires previous context. If a question is a logical piece of a larger problem, it is ready for the Planner. Only route to refinement if the current string itself contains multiple hidden questions.
+
+FEEDBACK RULES ('feedback' field):
+- For 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
 - For 'route_to_planning': Suggest specific search keywords.
 - For 'finish': Leave empty.
 
