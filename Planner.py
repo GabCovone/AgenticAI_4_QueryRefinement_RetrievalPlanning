@@ -10,13 +10,23 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from graph import GraphState
 
 # --- 1. SETUP DEI RETRIEVER ---
-# Wikipedia per le entità specifiche (restituisce paragrafi)
-wiki_wrapper = WikipediaAPIWrapper(top_k_results=2, doc_content_chars_max=1500)
+# Wikipedia: Aumentiamo i limiti visto che Mistral Nemo ha un contesto ampio
+wiki_wrapper = WikipediaAPIWrapper(top_k_results=3, doc_content_chars_max=2500)
 wiki_tool = WikipediaQueryRun(api_wrapper=wiki_wrapper)
 
-# DuckDuckGo per ricerche libere (restituisce snippet web)
-ddg_wrapper = DuckDuckGoSearchAPIWrapper(region="us-en")
-ddg_search = DuckDuckGoSearchResults(api_wrapper=ddg_wrapper, max_results=3)
+# DuckDuckGo: Usiamo la versione 'Run' che restituisce testo pulito invece di JSON grezzo
+ddg_wrapper = DuckDuckGoSearchAPIWrapper(region="us-en", max_results=5)
+ddg_search = DuckDuckGoSearchResults(api_wrapper=ddg_wrapper) # We will parse it manually for cleaner output
+
+import ast
+def clean_ddg_results(raw_res: str) -> str:
+    try:
+        # DDG returns a string representation of a list of dicts. We try to parse it safely.
+        # But wait, DuckDuckGoSearchResults returns a string like "[snippet: x, title: y, link: z], ..."
+        # A simpler way is just to replace formatting
+        return raw_res.replace("[snippet:", "\n- Snippet:").replace(", title:", "\n  Title:").replace(", link:", "\n  Link:")
+    except:
+        return raw_res
 
 @tool
 def wiki_search(query: str) -> str:
@@ -38,7 +48,7 @@ def web_search(query: str) -> str:
     """
     try:
         res = ddg_search.invoke({"query": query})
-        return res if res else "Nessun risultato sul web."
+        return clean_ddg_results(res) if res else "Nessun risultato sul web."
     except Exception as e:
         return f"Errore: {str(e)}"
 
@@ -230,30 +240,22 @@ FINAL ANSWER: [your complete answer here]
 3. DO NOT hallucinate. You MUST base your answer on the retrieved snippets.
 
 Example of Calling a Tool:
+Thought: I need to search for Shirley Temple to find out when she was born.
+```json
 {{
   "name": "wiki_search",
   "arguments": {{"query": "Shirley Temple"}}
 }}
+```
 
 PREVIOUSLY ACQUIRED CONTEXT:
 {global_context if global_context else "No previous context."}
 
 INSTRUCTIONS:
-1. If the context lacks the answer, CALL 'web_search'. Use precise/explicit natural language terms (e.g., search 'who directed the film X', NOT 'director of film X').
-2. If the context has the answer, DO NOT call tools. Answer with a concluding thought.
+1. If the context lacks the answer, first write a 'Thought: ' explaining your reasoning, then output the JSON tool call to search.
+2. If the context has the answer, DO NOT call tools. Answer with FINAL ANSWER: [answer].
 3. CRITICAL: Output ONLY English. No Chinese characters.
-4. CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object representing the tool call. DO NOT output any conversational text.
-
---- FEW-SHOT EXAMPLES ---
-
-Query: "Birthplace of Christopher Nolan"
-Context: "No previous context."
-```json
-{{
-  "name": "web_search",
-  "arguments": {{"query": "Christopher Nolan birthplace"}}
-}}
-```
+4. FORMAT: You MUST manually output a RAW JSON object representing the tool call immediately after your Thought.
 """
             messages = [
                 HumanMessage(content=f"{system_prompt}\n\nQuery to answer: '{query}'")

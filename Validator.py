@@ -13,12 +13,12 @@ MAX_PLANNING = 5
 # --- SCHEMA DI DECISIONE FINALE (CON SELF-RAG, ADAPTIVE-RAG E REFLEXION) ---
 class ValidatorDecision(BaseModel):
     """USE THIS TOOL to issue your final routing decision."""
-    reflection: str = Field(description="REFLEXION: Critique past iterations (Refinement/Planning Count). Why did previous steps fail? How can we avoid loops?")
-    query_complexity: Literal["simple", "complex", "already_decomposed"] = Field(description="ADAPTIVE-RAG: Assess the current query's complexity.")
-    is_context_relevant: bool = Field(description="SELF-RAG: Is the retrieved context semantically relevant to the query?")
-    is_query_answered: bool = Field(description="SELF-RAG: Does the context fully and completely answer the Original Query?")
+    reflection: str = Field(description="REFLEXION: Critique past iterations. Why did previous retrievals fail? Is there a hallucination? How can we recover?")
+    query_complexity: Literal["simple", "complex", "already_decomposed"] = Field(description="ADAPTIVE-RAG: Assess if the query is a simple factoid, a complex multi-hop, or already broken down.")
+    is_context_relevant: bool = Field(description="SELF-RAG (IsRel): Does the retrieved context contain information semantically relevant to the entities in the query?")
+    is_query_answered: bool = Field(description="SELF-RAG (IsSup): Is the proposed Final Answer fully and factually supported by the retrieved context without any hallucinations?")
     reasoning: str = Field(description="CHAIN OF THOUGHT: Combine the critiques above to justify your routing decision.")
-    feedback: str = Field(description="Specific instructions for the next agent. For Refiner: tell it which tool to use (decompose/rewrite/expand). For Planner: suggest exact search terms. Empty if finish.")
+    feedback: str = Field(description="Specific instructions for the next agent. For Refiner: suggest 'decompose_query' for parallel searches. For Planner: suggest explicit exact keywords to search.")
     next_action: Literal["route_to_refinement", "route_to_planning", "finish"] = Field(
         description="The next node to send the execution to."
     )
@@ -36,14 +36,15 @@ Evaluate if the current sub-query is ready for retrieval, needs refinement, or i
 
 ROUTING OPTIONS ('next_action'):
 1. 'finish': CHOOSE THIS FIRST if the Current Context or Final Answer completely answers the sub-query.
-2. 'route_to_planning': Choose this if the sub-query represents a SINGLE search intent OR if it is a dependent follow-up question (e.g., "Among those, which ones..."). Dependent questions are ready for planning.
-3. 'route_to_refinement': Choose this ONLY if the sub-query contains multiple independent entities or facts that must be searched separately before they can be compared or combined (e.g., "Did X and Y go to the same school?" -> requires finding X's school and Y's school). 
+2. 'route_to_planning': Choose this for most queries, including MULTI-HOP or sequential questions (e.g., "Who was the director of the movie starring X?"). The Planner uses the ReAct paradigm (Reasoning + Acting) and is perfectly capable of breaking down sequential tasks step-by-step using thoughts and actions.
+3. 'route_to_refinement': Choose this ONLY if the query consists of entirely INDEPENDENT, parallel questions that have no sequential dependency and must be searched separately before being compared (e.g., "Did X and Y go to the same school?" -> finding X's school does not depend on Y).
 
-CRITICAL LOGIC RULE: Do not route to refinement simply because a question requires previous context. If a question is a logical piece of a larger problem, it is ready for the Planner. Only route to refinement if the current string itself contains multiple hidden questions.
+CRITICAL LOGIC RULE: Do not route to refinement just because a query is complex or multi-hop. ReAct can handle multi-hop. Only route to refinement if the query requires parallel independent searches.
 
 FEEDBACK RULES ('feedback' field):
-- For 'route_to_refinement': Explicitly suggest 'decompose_query', 'rewrite_query', or 'expand_query' based on the problem.
-- For 'route_to_planning': Suggest specific search keywords.
+- If the current context is totally irrelevant (Self-RAG IsRel=False), explicitly suggest DIFFERENT keywords or synonyms to search.
+- If the output is not fully supported (Self-RAG IsSup=False), point out the specific hallucinated fact so the Planner knows what to correct.
+- For 'route_to_refinement': Explicitly suggest breaking down the independent entities.
 - For 'finish': Leave empty.
 
 CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object that matches the tool schema. DO NOT output any conversational text before or after the JSON.

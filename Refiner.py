@@ -10,13 +10,13 @@ from graph import GraphState
 @tool
 def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> List[str]:
     """
-    Applies Phase 1 of the 'Least-to-Most Prompting' framework.
-    WHEN TO USE: Use this tool when the query is complex (multi-hop), contains multiple main subjects, or requires solving intermediate problems.
+    Applies parallel decomposition.
+    WHEN TO USE: Use this tool ONLY when the query contains MULTIPLE INDEPENDENT entities or facts that must be searched separately (e.g., comparisons, intersections). DO NOT use this for multi-hop sequential queries (e.g., "Where was the director of X born?"), as the Planner can handle those.
     INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you chose to decompose.
-    CRITICAL RULE: A multi-hop query must be broken down into a SEQUENCE of dependent steps. Step 1 should ask to identify the unknown entity (e.g., "Who is the director of the film Inception?"). Step 2 should ask the final question using a placeholder for the result of Step 1 (e.g., "In which city was [Director of Inception] born?"). DO NOT create two sub-queries that ask the exact same thing.
-    CRITICAL RULE 2: Do not resolve unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES (e.g. KEEP "Inception", do not replace it with "[Film Name]").
-    EXAMPLE: If the query is "In which city was the director of the film Inception born?"
-    The `sub_queries` argument must be: ["Who is the director of the film Inception?", "In which city was [Director of Inception] born?"]
+    CRITICAL RULE: Break the query down into entirely independent sub-queries that can be executed in parallel.
+    CRITICAL RULE 2: Do not resolve unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES.
+    EXAMPLE: If the query is "Were Scott Derrickson and Ed Wood of the same nationality?"
+    The `sub_queries` argument must be: ["What is the nationality of Scott Derrickson?", "What is the nationality of Ed Wood?"]
     """
     return sub_queries
 
@@ -24,11 +24,11 @@ def decompose_query(reflection: str, reasoning: str, sub_queries: List[str]) -> 
 def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     """
     Applies the 'Query2doc' framework for semantic expansion.
-    WHEN TO USE: Use this tool when the query is clear and has a single subject, but is too short, vague, or lacks the technical jargon needed for effective retrieval.
-    INSTRUCTIONS: In the 'reflection' field, critique your past attempts based on the Validator's feedback. In 'reasoning', explain why you are expanding it.
-    CRITICAL RULE: Do not resolve unknown entities. Use placeholders for unknown entities. BUT ALWAYS KEEP EXPLICIT ENTITIES.
-    EXAMPLE: If the query is "car batteries that don't die in the cold".
-    The `pseudo_document` argument must be: "Solid-state batteries, lithium iron phosphate (LFP), thermal degradation, low-temperature efficiency, EV winter range, pre-conditioning."
+    WHEN TO USE: Use this tool when the query is short, ambiguous, or lacks necessary background information.
+    INSTRUCTIONS: Generate a 'pseudo-document' that attempts to answer the query using your internal knowledge. This generated passage will be concatenated with the original query to guide the retrieval system by providing rich contextual vocabulary.
+    CRITICAL RULE: Write a factual passage that answers the query or provides highly relevant background details.
+    EXAMPLE: If the query is "when was pokemon green released"
+    The `pseudo_document` argument must be: "Pokemon Green was released in Japan on February 27th, 1996. It was the first in the Pokemon series of games and served as the basis for Pokemon Red and Blue."
     """
     return pseudo_document
 
@@ -76,26 +76,26 @@ CRITICAL RULES:
 3. LANGUAGE: Use strictly English. Do not output Chinese characters.
 
 TOOL SELECTION GUIDELINES:
-- 'decompose_query': If the query is multi-hop, contains multiple concepts, or requires intermediate steps.
-- 'keep_query_unchanged': If the query is already a simple, single, atomic question (even with placeholders) or ready for retrieval.
+- 'decompose_query': ONLY if the query consists of entirely independent parallel questions (e.g., "Are X and Y the same nationality?"). DO NOT use for multi-hop sequential questions.
+- 'keep_query_unchanged': If the query is multi-hop (Planner will handle it via ReAct), or already a simple atomic question, or ready for retrieval.
 - 'rewrite_query': To remove conversational noise.
-- 'expand_query': To add context if previous retrieval failed.
+- 'expand_query': To generate a Query2doc pseudo-document and add semantic context.
 
 CRITICAL INSTRUCTION: You do not support native function calling. You MUST manually output a RAW JSON object representing the tool call. DO NOT output any conversational text.
 
 You MUST formulate your Chain-of-Thought inside the `reasoning` field and critique feedback in the `reflection` field.
 --- FEW-SHOT EXAMPLES ---
 
-User's query: "In which city was the director of the film Inception born?"
-Expected Action: The query is multi-hop. We need to identify the director first, and then their birthplace.
+User's query: "Were Scott Derrickson and Ed Wood of the same nationality?"
+Expected Action: The query requires comparing two independent entities.
 Tools to call:
 ```json
 {
   "name": "decompose_query",
   "arguments": {
-    "reflection": "The Validator feedback indicates that the query is multi-hop and requires intermediate steps.",
-    "reasoning": "I must split this into a sequence. First, identify the director of Inception. Second, ask for the birthplace of that director using a placeholder.",
-    "sub_queries": ["Who is the director of the film Inception?", "In which city was [Director of Inception] born?"]
+    "reflection": "The Validator feedback indicates parallel searches are needed.",
+    "reasoning": "I must split this into independent queries to find the nationality of each person separately before comparing.",
+    "sub_queries": ["What is the nationality of Scott Derrickson?", "What is the nationality of Ed Wood?"]
   }
 }
 ```
@@ -110,6 +110,20 @@ Tools to call:
     "reflection": "The query asks to resolve an entity ('the guy who wrote').",
     "reasoning": "I need to rewrite this formally and USE A PLACEHOLDER for the unknown author, without resolving it.",
     "rewritten_query": "Identify the mother of [Author of Harry Potter]"
+  }
+}
+```
+
+User's query: "when was pokemon green released"
+Expected Action: The query is unambiguous but needs background knowledge expansion.
+Tools to call:
+```json
+{
+  "name": "expand_query",
+  "arguments": {
+    "reflection": "The Validator feedback suggests search expansion due to lack of specific context.",
+    "reasoning": "I need to generate a pseudo-document from my internal knowledge to enrich the retrieval system's vocabulary.",
+    "pseudo_document": "Pokemon Green was released in Japan on February 27th, 1996. It was the first in the Pokemon series of games and served as the basis for Pokemon Red and Blue."
   }
 }
 ```
