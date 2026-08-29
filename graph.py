@@ -19,8 +19,9 @@ class GraphState(TypedDict):
 from huggingface_hub import hf_hub_download
 from langchain_community.chat_models import ChatLlamaCpp 
 
-REPO_ID = "bartowski/gemma-2-9b-it-GGUF" 
-FILENAME = "gemma-2-9b-it-Q4_K_M.gguf" 
+# Modello europeo (Mistral Nemo 12B, eccellente per ragionamento e meno incline alle allucinazioni, ~8.5GB)
+REPO_ID = "bartowski/Mistral-Nemo-Instruct-2407-GGUF" 
+FILENAME = "Mistral-Nemo-Instruct-2407-Q5_K_M.gguf" 
 LOCAL_DIR = "./models"
 LOCAL_PATH = os.path.join(LOCAL_DIR, FILENAME)
 

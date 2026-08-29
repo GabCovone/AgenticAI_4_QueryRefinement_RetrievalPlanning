@@ -3,27 +3,44 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 from graph import GraphState
 
-# --- 1. SETUP DEL RETRIEVER (Wikipedia API) ---
-# Usiamo Wikipedia che restituisce paragrafi interi (ideale per HotpotQA)
-api_wrapper = WikipediaAPIWrapper(top_k_results=2, doc_content_chars_max=1500)
-wiki_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
+# --- 1. SETUP DEI RETRIEVER ---
+# Wikipedia per le entità specifiche (restituisce paragrafi)
+wiki_wrapper = WikipediaAPIWrapper(top_k_results=2, doc_content_chars_max=1500)
+wiki_tool = WikipediaQueryRun(api_wrapper=wiki_wrapper)
+
+# DuckDuckGo per ricerche libere (restituisce snippet web)
+ddg_wrapper = DuckDuckGoSearchAPIWrapper(region="us-en")
+ddg_search = DuckDuckGoSearchResults(api_wrapper=ddg_wrapper, max_results=3)
+
+@tool
+def wiki_search(query: str) -> str:
+    """
+    Searches Wikipedia. ONLY use this for exact names of people, places, or well-known entities.
+    Argument: Exact entity name.
+    """
+    try:
+        res = wiki_tool.invoke({"query": query})
+        return res if res else "Nessun risultato su Wikipedia."
+    except Exception as e:
+        return f"Errore: {str(e)}"
 
 @tool
 def web_search(query: str) -> str:
     """
-    Executes a search on Wikipedia to retrieve detailed information and entities.
-    Argument: The exact entity or concept to search for.
-    Returns: Detailed text snippets retrieved from Wikipedia articles.
+    Executes a web search on DuckDuckGo. Use this for complex questions or finding connections between entities.
+    Argument: Natural language search query.
     """
     try:
-        results = wiki_tool.invoke({"query": query})
-        return results if results else "Nessun risultato trovato su Wikipedia."
+        res = ddg_search.invoke({"query": query})
+        return res if res else "Nessun risultato sul web."
     except Exception as e:
-        return f"Errore durante la ricerca: {str(e)}"
+        return f"Errore: {str(e)}"
 
 class AdaptiveStrategy(BaseModel):
     """USE THIS TOOL to classify the query strategy."""
@@ -103,7 +120,7 @@ def planner_node(state: GraphState, llm) -> dict:
         queries = [q.strip() for q in queries.split("\n---\n") if q.strip()]
         
     global_context = ""
-    tools = [web_search]
+    tools = [web_search, wiki_search]
     llm_with_tools = llm.bind_tools(tools)
     
     # Limite di sicurezza per evitare OOM (Out Of Memory) su Colab
@@ -202,7 +219,21 @@ CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based 
         else:
             # MULTI-STEP REACT
             system_prompt = f"""You are a Multi-Step Research Agent.
-Find information to answer the query using the 'web_search' tool.
+Evaluate the remaining query using one of these tools:
+- 'wiki_search': For exact entities, famous people, places, or wikipedia articles.
+- 'web_search': For broad searches, complex questions, or finding connections.
+
+Rules:
+1. If you need information, CALL EITHER 'wiki_search' OR 'web_search'.
+2. If the retrieved context already answers the query, format your response as EXACTLY:
+FINAL ANSWER: [your complete answer here]
+3. DO NOT hallucinate. You MUST base your answer on the retrieved snippets.
+
+Example of Calling a Tool:
+{{
+  "name": "wiki_search",
+  "arguments": {{"query": "Shirley Temple"}}
+}}
 
 PREVIOUSLY ACQUIRED CONTEXT:
 {global_context if global_context else "No previous context."}
@@ -239,10 +270,15 @@ Context: "No previous context."
                     
                     if t_calls_react:
                         for tool_call in t_calls_react:
+                            search_query = tool_call['args'].get('query', query)
                             if tool_call['name'] == "web_search":
-                                search_query = tool_call['args'].get('query', query)
-                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo ricerca web per -> '{search_query}'")
+                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo web_search per -> '{search_query}'")
                                 tool_result = web_search.invoke({"query": search_query})
+                            elif tool_call['name'] == "wiki_search":
+                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo wiki_search per -> '{search_query}'")
+                                tool_result = wiki_search.invoke({"query": search_query})
+                            else:
+                                tool_result = "Tool sconosciuto."
                                 
                                 # Print a preview of the retrieved text
                                 preview = str(tool_result)[:150].replace('\n', ' ') + "..."
