@@ -26,7 +26,7 @@ def web_search(query: str) -> str:
         # We format it nicely for the LLM
         if not raw_res:
             return "Nessun risultato sul web."
-        clean_text = raw_res.replace("[snippet:", "\n- Snippet:").replace(", title:", "\n  Title:").replace(", link:", "\n  Link:").replace("], ", "]\n")
+        clean_text = raw_res.replace("snippet:", "\n- Snippet:").replace("title:", "\n  Title:").replace("link:", "\n  Link:")
         return clean_text
     except Exception as e:
         return f"Errore: {str(e)}"
@@ -248,7 +248,7 @@ PREVIOUSLY ACQUIRED CONTEXT:
 {global_context if global_context else "No previous context."}
 
 INSTRUCTIONS:
-1. If the context lacks the answer, first write a 'Thought: ' explaining your reasoning, then output the JSON tool call to search.
+1. If the context lacks the answer, first write a 'Thought: ' explaining your reasoning, then output EXACTLY ONE JSON tool call to search. DO NOT output multiple JSON blocks.
 2. If the context has the answer, DO NOT call tools. Answer with FINAL ANSWER: [answer].
 3. CRITICAL: Output ONLY English. No Chinese characters.
 4. FORMAT: You MUST manually output a RAW JSON object representing the tool call immediately after your Thought.

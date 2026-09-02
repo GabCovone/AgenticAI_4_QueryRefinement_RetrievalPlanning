@@ -37,9 +37,9 @@ Evaluate if the current sub-query is ready for retrieval, needs refinement, or i
 ROUTING OPTIONS ('next_action'):
 1. 'finish': CHOOSE THIS FIRST if the Current Context or Final Answer completely answers the sub-query.
 2. 'route_to_planning': Choose this for most queries, including MULTI-HOP or sequential questions (e.g., "Who was the director of the movie starring X?"). The Planner uses the ReAct paradigm (Reasoning + Acting) and is perfectly capable of breaking down sequential tasks step-by-step using thoughts and actions.
-3. 'route_to_refinement': Choose this ONLY if the query consists of entirely INDEPENDENT, parallel questions that have no sequential dependency and must be searched separately before being compared (e.g., "Did X and Y go to the same school?" -> finding X's school does not depend on Y).
+3. 'route_to_refinement': Choose this ONLY if the query consists of entirely INDEPENDENT, parallel questions, OR if it asks to compare two entities / check if they share a trait (e.g., "Were X and Y born in the same country?", "Who is older, X or Y?"). Finding X's trait and Y's trait are independent parallel tasks.
 
-CRITICAL LOGIC RULE: Do not route to refinement just because a query is complex or multi-hop. ReAct can handle multi-hop. Only route to refinement if the query requires parallel independent searches.
+CRITICAL LOGIC RULE: Do not route to refinement just because a query is complex or multi-hop. Only route to refinement if the query requires parallel independent searches (like comparing two people).
 
 FEEDBACK RULES ('feedback' field):
 - If the Refiner DROPPED an entity from the Original Query in the Current Query, you MUST point out the missing entity and demand the Refiner to restore it.
