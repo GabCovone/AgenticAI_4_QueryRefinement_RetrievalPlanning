@@ -15,8 +15,8 @@ class ValidatorDecision(BaseModel):
     """USE THIS TOOL to issue your final routing decision."""
     reflection: str = Field(description="REFLEXION: Critique past iterations. Why did previous retrievals fail? Is there a hallucination? How can we recover?")
     query_complexity: Literal["simple", "complex", "already_decomposed"] = Field(description="ADAPTIVE-RAG: Assess if the query is a simple factoid, a complex multi-hop, or already broken down.")
-    is_context_relevant: bool = Field(description="SELF-RAG (IsRel): Does the retrieved context contain information semantically relevant to the entities in the query?")
-    is_query_answered: bool = Field(description="SELF-RAG (IsSup): Is the proposed Final Answer fully and factually supported by the retrieved context without any hallucinations?")
+    is_context_relevant: bool = Field(description="SELF-RAG (IsRel): Determine if the evidence is relevant to the initial instruction and provides useful information to complete the task.")
+    is_query_answered: bool = Field(description="SELF-RAG (IsSup): Evaluate if the proposed Final Answer is fully supported by the information provided in the evidence. All information in output must be supported by the evidence without hallucinations.")
     reasoning: str = Field(description="CHAIN OF THOUGHT: Combine the critiques above to justify your routing decision.")
     feedback: str = Field(description="Specific instructions for the next agent. For Refiner: suggest 'decompose_query' for parallel searches. For Planner: suggest explicit exact keywords to search.")
     next_action: Literal["route_to_refinement", "route_to_planning", "finish"] = Field(
@@ -42,6 +42,7 @@ ROUTING OPTIONS ('next_action'):
 CRITICAL LOGIC RULE: Do not route to refinement just because a query is complex or multi-hop. ReAct can handle multi-hop. Only route to refinement if the query requires parallel independent searches.
 
 FEEDBACK RULES ('feedback' field):
+- If the Refiner DROPPED an entity from the Original Query in the Current Query, you MUST point out the missing entity and demand the Refiner to restore it.
 - If the current context is totally irrelevant (Self-RAG IsRel=False), explicitly suggest DIFFERENT keywords or synonyms to search.
 - If the output is not fully supported (Self-RAG IsSup=False), point out the specific hallucinated fact so the Planner knows what to correct.
 - For 'route_to_refinement': Explicitly suggest breaking down the independent entities.
@@ -119,8 +120,9 @@ Example 3 (Ready for Planning):
     for q_idx, q in enumerate(queries):
         print(f"\n⚙️  [VALIDATOR] Valutazione sotto-query {q_idx+1}/{len(queries)}: '{q}'")
         try:
+            original_q = state.get('original_query', '')
             full_queries_context = "\n".join([f"- {sq}" for sq in queries])
-            full_prompt = f"{system_prompt}\n\nAll current sub-queries:\n{full_queries_context}\n\nCurrently evaluating Sub-Query: '{q}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state for the CURRENT sub-query and output the JSON tool call."
+            full_prompt = f"{system_prompt}\n\nGlobal Original Query: '{original_q}'\n\nAll current sub-queries:\n{full_queries_context}\n\nCurrently evaluating Sub-Query: '{q}'.\nCurrent Context: '{context}'\nRefinement Count: {num_ref}\nPlanning Count: {num_plan}\n\nAnalyze the state for the CURRENT sub-query and output the JSON tool call."
             response_msg = llm_with_tools.invoke([
                 HumanMessage(content=full_prompt)
             ])

@@ -3,58 +3,47 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-from langchain_community.tools import DuckDuckGoSearchResults
-from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
-from langchain_community.tools import WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.utilities import GoogleSearchAPIWrapper
 from graph import GraphState
-
-# --- 1. SETUP DEI RETRIEVER ---
 import os
-# Impostiamo un User-Agent esplicito per evitare che l'API di Wikipedia blocchi l'IP di Google Colab
-os.environ["WIKIPEDIA_USER_AGENT"] = "AgenticAI_Bot/1.0 (student@university.edu)"
+import requests
+from bs4 import BeautifulSoup
 
-# Wikipedia: Aumentiamo i limiti visto che Mistral Nemo ha un contesto ampio
-wiki_wrapper = WikipediaAPIWrapper(top_k_results=3, doc_content_chars_max=2500)
-wiki_tool = WikipediaQueryRun(api_wrapper=wiki_wrapper)
-
-# DuckDuckGo: Usiamo la versione 'Run' che restituisce testo pulito invece di JSON grezzo
-ddg_wrapper = DuckDuckGoSearchAPIWrapper(region="us-en", max_results=5)
-ddg_search = DuckDuckGoSearchResults(api_wrapper=ddg_wrapper) # We will parse it manually for cleaner output
-
-import ast
-def clean_ddg_results(raw_res: str) -> str:
-    try:
-        # DDG returns a string representation of a list of dicts. We try to parse it safely.
-        # But wait, DuckDuckGoSearchResults returns a string like "[snippet: x, title: y, link: z], ..."
-        # A simpler way is just to replace formatting
-        return raw_res.replace("[snippet:", "\n- Snippet:").replace(", title:", "\n  Title:").replace(", link:", "\n  Link:")
-    except:
-        return raw_res
-
-@tool
-def wiki_search(query: str) -> str:
-    """
-    Searches Wikipedia. ONLY use this for exact names of people, places, or well-known entities.
-    Argument: Exact entity name.
-    """
-    try:
-        res = wiki_tool.invoke({"query": query})
-        return res if res else "Nessun risultato su Wikipedia."
-    except Exception as e:
-        return f"Errore: {str(e)}"
+# Google Search API: Richiede GOOGLE_API_KEY e GOOGLE_CSE_ID settati come variabili d'ambiente.
+google_wrapper = GoogleSearchAPIWrapper(k=5)
 
 @tool
 def web_search(query: str) -> str:
     """
-    Executes a web search on DuckDuckGo. Use this for complex questions or finding connections between entities.
+    Executes a web search on Google. Use this to find snippets and links.
     Argument: Natural language search query.
     """
     try:
-        res = ddg_search.invoke({"query": query})
-        return clean_ddg_results(res) if res else "Nessun risultato sul web."
+        results = google_wrapper.results(query, num_results=5)
+        clean_text = ""
+        for i, res in enumerate(results):
+            clean_text += f"\n{i+1}. Titolo: {res.get('title')}\n   Snippet: {res.get('snippet')}\n   Link: {res.get('link')}\n"
+        return clean_text if clean_text else "Nessun risultato sul web."
     except Exception as e:
         return f"Errore: {str(e)}"
+
+@tool
+def scrape_website(url: str) -> str:
+    """
+    Downloads and extracts the text content of a webpage. Use this ONLY when the snippet from web_search is not enough.
+    Argument: The exact URL (link) to scrape.
+    """
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # Extract text from paragraphs
+        text = ' '.join([p.get_text() for p in soup.find_all('p')])
+        # Limit to 3000 chars to avoid blowing up context window
+        return text[:3000] if text else "Nessun testo leggibile trovato."
+    except Exception as e:
+        return f"Errore nello scraping: {str(e)}"
 
 class AdaptiveStrategy(BaseModel):
     """USE THIS TOOL to classify the query strategy."""
@@ -82,37 +71,37 @@ def extract_tool_calls(response_msg):
                     char = content[j]
                     if char == '"' and not escape:
                         in_string = not in_string
-                    
                     if not in_string:
                         if char == '{':
                             brace_level += 1
                         elif char == '}':
                             brace_level -= 1
-                            
-                    if brace_level == 0:
-                        try:
-                            parsed = json.loads(content[i:j+1])
-                            if isinstance(parsed, dict):
-                                t_name = None
-                                t_args = {}
-                                if "name" in parsed:
-                                    t_name = parsed["name"]
-                                    t_args = parsed.get("arguments", parsed.get("args", parsed.get("parameters", parsed)))
-                                else:
-                                    # Infer name from keys if 'name' wrapper is missing
-                                    t_args = parsed
-                                    if "strategy" in t_args or "search_term" in t_args:
-                                        t_name = "AdaptiveStrategy"
-                                    elif "query" in t_args:
-                                        t_name = "web_search"
+                            if brace_level == 0:
+                                json_str = content[i:j+1]
+                                try:
+                                    parsed = json.loads(json_str)
+                                    t_name = None
+                                    t_args = {}
+                                    if "name" in parsed:
+                                        t_name = parsed["name"]
+                                        t_args = parsed.get("arguments", parsed.get("args", parsed.get("parameters", parsed)))
+                                    else:
+                                        # Infer name from keys if 'name' wrapper is missing
+                                        t_args = parsed
+                                        if "strategy" in t_args or "search_term" in t_args:
+                                            t_name = "AdaptiveStrategy"
+                                        elif "query" in t_args:
+                                            t_name = "web_search"
+                                        elif "url" in t_args:
+                                            t_name = "scrape_website"
+                                    
+                                    if t_name:
+                                        tool_calls_list.append({"name": t_name, "args": t_args, "id": "fb_123"})
+                                except Exception:
+                                    pass
+                                i = j # Salta i caratteri elaborati e vai oltre
+                                break
                                 
-                                if t_name:
-                                    tool_calls_list.append({"name": t_name, "args": t_args, "id": "fb_123"})
-                        except Exception:
-                            pass
-                        i = j # Salta i caratteri elaborati e vai oltre
-                        break
-                        
                     if char == '\\':
                         escape = not escape
                     else:
@@ -134,11 +123,11 @@ def planner_node(state: GraphState, llm) -> dict:
         queries = [q.strip() for q in queries.split("\n---\n") if q.strip()]
         
     global_context = ""
-    tools = [web_search, wiki_search]
+    tools = [web_search, scrape_website]
     llm_with_tools = llm.bind_tools(tools)
     
     # Limite di sicurezza per evitare OOM (Out Of Memory) su Colab
-    MAX_STEPS_PER_QUERY = 2 
+    MAX_STEPS_PER_QUERY = 3
     
     # --- FASE A: RETRIEVAL INTERATTIVO (IRCoT, Adaptive-RAG & ReAct Loop) ---
     for i, query in enumerate(queries):
@@ -175,7 +164,6 @@ User query: "What is 2+2?"
   }}
 }}
 ```
-
 User query: "Who won the World Cup in 2022?"
 ```json
 {{
@@ -233,22 +221,22 @@ CRITICAL: DO NOT copy these examples verbatim. Formulate your search term based 
         else:
             # MULTI-STEP REACT
             system_prompt = f"""You are a Multi-Step Research Agent.
-Evaluate the remaining query using one of these tools:
-- 'wiki_search': For exact entities, famous people, places, or wikipedia articles.
-- 'web_search': For broad searches, complex questions, or finding connections.
+Evaluate the remaining query using the available tools:
+- 'web_search': To search Google and get snippets with links.
+- 'scrape_website': To extract the full text of a specific URL (only if the snippet was insufficient).
 
 Rules:
-1. If you need information, CALL EITHER 'wiki_search' OR 'web_search'.
+1. If you need information, CALL 'web_search' first. If a snippet looks promising but lacks detail, use 'scrape_website' on the link.
 2. If the retrieved context already answers the query, format your response as EXACTLY:
 FINAL ANSWER: [your complete answer here]
-3. DO NOT hallucinate. You MUST base your answer on the retrieved snippets.
+3. DO NOT hallucinate. You MUST base your answer on the retrieved text.
 
 Example of Calling a Tool:
 Thought: I need to search for Shirley Temple to find out when she was born.
 ```json
 {{
-  "name": "wiki_search",
-  "arguments": {{"query": "Shirley Temple"}}
+  "name": "web_search",
+  "arguments": {{"query": "Shirley Temple birth date"}}
 }}
 ```
 
@@ -281,12 +269,12 @@ INSTRUCTIONS:
                             if tool_call['name'] == "web_search":
                                 print(f"   🌐 [PLANNER] Azione ReAct: Eseguo web_search per -> '{search_query}'")
                                 tool_result = web_search.invoke({"query": search_query})
-                            elif tool_call['name'] == "wiki_search":
-                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo wiki_search per -> '{search_query}'")
-                                tool_result = wiki_search.invoke({"query": search_query})
+                            elif tool_call['name'] == "scrape_website":
+                                target_url = tool_call['args'].get('url', search_query) # fallback se usa 'query' invece di 'url'
+                                print(f"   🌐 [PLANNER] Azione ReAct: Eseguo scraping su -> '{target_url}'")
+                                tool_result = scrape_website.invoke({"url": target_url})
                             else:
                                 tool_result = "Tool sconosciuto."
-                                
                             # Print a preview of the retrieved text
                             preview = str(tool_result)[:150].replace('\n', ' ') + "..."
                             print(f"      📄 [PLANNER] Retrieved: {preview}")

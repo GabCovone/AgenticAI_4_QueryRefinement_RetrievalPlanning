@@ -25,7 +25,7 @@ def expand_query(reflection: str, reasoning: str, pseudo_document: str) -> str:
     """
     Applies the 'Query2doc' framework for semantic expansion.
     WHEN TO USE: Use this tool when the query is short, ambiguous, or lacks necessary background information.
-    INSTRUCTIONS: Generate a 'pseudo-document' that attempts to answer the query using your internal knowledge. This generated passage will be concatenated with the original query to guide the retrieval system by providing rich contextual vocabulary.
+    INSTRUCTIONS: Write a passage that answers the given query. This generated pseudo-document will be concatenated with the original query to guide the retrieval system by providing rich contextual vocabulary.
     CRITICAL RULE: Write a factual passage that answers the query or provides highly relevant background details.
     EXAMPLE: If the query is "when was pokemon green released"
     The `pseudo_document` argument must be: "Pokemon Green was released in Japan on February 27th, 1996. It was the first in the Pokemon series of games and served as the basis for Pokemon Red and Blue."
@@ -141,7 +141,8 @@ Tools to call:
     for q_idx, q in enumerate(queries):
         print(f"\n🔍 [REFINER] Analisi sotto-query {q_idx+1}/{len(queries)}: '{q}'")
         try:
-            full_prompt = f"{system_prompt}\n\nOriginal Query: '{current_query_raw}'\nCurrent Sub-Query: '{q}'\n\nFeedback from Validator:{feedback_text}\n\nAnalyze the feedback and output the JSON tool call."
+            original_q = state.get('original_query', '')
+            full_prompt = f"{system_prompt}\n\nGlobal Original Query (DO NOT LOSE ENTITIES FROM THIS): '{original_q}'\nCurrent Sub-Query to refine: '{q}'\n\nFeedback from Validator:{feedback_text}\n\nAnalyze the feedback and output the JSON tool call."
             response_msg = llm_with_tools.invoke([
                 HumanMessage(content=full_prompt)
             ])
