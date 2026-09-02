@@ -3,7 +3,7 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-from langchain_community.utilities import GoogleSearchAPIWrapper
+from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
 from graph import GraphState
 import os
 import requests
