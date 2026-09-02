@@ -3,27 +3,31 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
 from graph import GraphState
 import os
 import requests
 from bs4 import BeautifulSoup
 
-# Google Search API: Richiede GOOGLE_API_KEY e GOOGLE_CSE_ID settati come variabili d'ambiente.
-google_wrapper = GoogleSearchAPIWrapper(k=5)
+# DuckDuckGo: Free and requires no API keys!
+ddg_wrapper = DuckDuckGoSearchAPIWrapper(region="us-en", max_results=5)
+ddg_search = DuckDuckGoSearchResults(api_wrapper=ddg_wrapper)
 
 @tool
 def web_search(query: str) -> str:
     """
-    Executes a web search on Google. Use this to find snippets and links.
+    Executes a web search on DuckDuckGo. Use this to find snippets and links.
     Argument: Natural language search query.
     """
     try:
-        results = google_wrapper.results(query, num_results=5)
-        clean_text = ""
-        for i, res in enumerate(results):
-            clean_text += f"\n{i+1}. Titolo: {res.get('title')}\n   Snippet: {res.get('snippet')}\n   Link: {res.get('link')}\n"
-        return clean_text if clean_text else "Nessun risultato sul web."
+        raw_res = ddg_search.invoke({"query": query})
+        # DuckDuckGoSearchResults returns a string: [snippet: x, title: y, link: z]
+        # We format it nicely for the LLM
+        if not raw_res:
+            return "Nessun risultato sul web."
+        clean_text = raw_res.replace("[snippet:", "\n- Snippet:").replace(", title:", "\n  Title:").replace(", link:", "\n  Link:").replace("], ", "]\n")
+        return clean_text
     except Exception as e:
         return f"Errore: {str(e)}"
 
